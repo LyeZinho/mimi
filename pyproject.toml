@@ -1,0 +1,39 @@
+[project]
+name = "mimi"
+version = "0.1.0"
+description = "Agente de IA Interativo Multimodal"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0",
+    "httpx>=0.25",
+]
+
+[project.optional-dependencies]
+voice = [
+    "sounddevice>=0.4",
+    "webrtcvad>=2.0",
+    "faster-whisper>=0.9",
+]
+tts = [
+    "piper-tts>=1.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.1",
+]
+
+[project.scripts]
+mimi = "agent.main:main"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

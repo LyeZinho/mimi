@@ -1,0 +1,14 @@
+[
+    {
+        "description": "Fix npm dependency conflict",
+        "status": "completed"
+    },
+    {
+        "description": "Port OBS view to React",
+        "status": "completed"
+    },
+    {
+        "description": "Add @vitejs/plugin-react",
+        "status": "completed"
+    }
+]

@@ -1,0 +1,195 @@
+"""Interface abstrata para avatar 3D."""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Optional
+
+import websockets
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+
+class AvatarCommand(BaseModel):
+    """Comando para enviar ao avatar."""
+    type: str = "avatar_control"
+    emotion: Optional[str] = None
+    gesture: Optional[str] = None
+    speak: bool = False
+    speech_text: Optional[str] = None
+    audio_base64: Optional[str] = None
+    model_path: Optional[str] = None
+    model_base64: Optional[str] = None
+    model_name: Optional[str] = None
+
+
+class AvatarInterface(ABC):
+    """Contrato para integração com avatares 3D (Unity, VTube Studio, VRM)."""
+
+    @abstractmethod
+    async def set_expression(self, name: str) -> None:
+        """Define expressão facial do avatar."""
+        ...
+
+    @abstractmethod
+    async def speak_start(self) -> None:
+        """Notifica início da fala (lip-sync, animação)."""
+        ...
+
+    @abstractmethod
+    async def load_model_from_path(self, path: str) -> None:
+        """Carrega modelo VRM de um caminho absoluto."""
+        ...
+
+    @abstractmethod
+    async def load_model_from_base64(self, base64_data: str, name: str) -> None:
+        """Carrega modelo VRM de dados base64."""
+        ...
+
+    @abstractmethod
+    async def connect(self) -> None:
+        """Conecta ao avatar."""
+        ...
+
+    @abstractmethod
+    async def disconnect(self) -> None:
+        """Desconecta do avatar."""
+        ...
+
+
+class DummyAvatar(AvatarInterface):
+    """Avatar placeholder para testes."""
+
+    async def connect(self) -> None:
+        logger.info("DummyAvatar conectado")
+
+    async def disconnect(self) -> None:
+        logger.info("DummyAvatar desconectado")
+
+    async def set_expression(self, name: str) -> None:
+        pass
+
+    async def speak_start(self) -> None:
+        pass
+
+    async def speak_end(self) -> None:
+        pass
+
+    async def load_model_from_path(self, path: str) -> None:
+        pass
+
+    async def load_model_from_base64(self, base64_data: str, name: str) -> None:
+        pass
+
+
+class WebAvatar(AvatarInterface):
+    """Cliente WebSocket para conectar ao backend do avatar."""
+
+    def __init__(self, host: str = "localhost", port: int = 8765):
+        self.host = host
+        self.port = port
+        self.ws = None
+        self.connected = False
+        self.agent = None
+        self.listen_task = None
+
+    def set_agent(self, agent: Any) -> None:
+        self.agent = agent
+
+    async def connect(self) -> None:
+        """Conecta ao servidor WebSocket (Backend)."""
+        uri = f"ws://{self.host}:{self.port}"
+        logger.info(f"Conectando ao backend em {uri}...")
+        try:
+            self.ws = await websockets.connect(uri)
+            self.connected = True
+            logger.info("Conectado ao backend WebAvatar")
+            
+            # Start listening loop
+            self.listen_task = asyncio.create_task(self._listen_loop())
+            
+        except Exception as e:
+            logger.error(f"Falha ao conectar ao backend: {e}")
+            self.connected = False
+
+    async def disconnect(self) -> None:
+        if self.ws:
+            await self.ws.close()
+            self.ws = None
+        if self.listen_task:
+            self.listen_task.cancel()
+        self.connected = False
+        logger.info("Desconectado do backend")
+
+    async def _listen_loop(self):
+        """Escuta mensagens do servidor."""
+        try:
+            async for message in self.ws:
+                try:
+                    data = json.loads(message)
+                    msg_type = data.get("type")
+                    
+                    if msg_type == "agent_input":
+                        text = data.get("text")
+                        if text and self.agent:
+                            logger.info(f"Input recebido do backend: {text}")
+                            # Process with agent
+                            result = await self.agent.handle_input(text, source="web")
+                            
+                            # Send response back
+                            response_text = result.get("text") or result.get("response")
+                            if response_text:
+                                await self.send_command({
+                                    "type": "agent_response",
+                                    "text": response_text
+                                })
+                                # Also send speak command
+                                await self.speak_start()
+                                
+                except json.JSONDecodeError:
+                    pass
+                except Exception as e:
+                    logger.error(f"Erro processando mensagem: {e}")
+        except Exception:
+            pass
+
+    async def send_command(self, data: dict) -> None:
+        if self.connected and self.ws:
+            try:
+                await self.ws.send(json.dumps(data))
+            except Exception as e:
+                logger.error(f"Erro ao enviar comando: {e}")
+
+    async def set_expression(self, name: str) -> None:
+        await self.send_command({
+            "type": "set_expression",
+            "expression": name
+        })
+
+    async def speak_start(self) -> None:
+        await self.send_command({
+            "type": "set_speaking",
+            "speaking": True
+        })
+
+    async def speak_end(self) -> None:
+        await self.send_command({
+            "type": "set_speaking",
+            "speaking": False
+        })
+
+    async def load_model_from_path(self, path: str) -> None:
+        filename = Path(path).name
+        await self.send_command({
+            "type": "set_model",
+            "model": filename
+        })
+
+    async def load_model_from_base64(self, base64_data: str, name: str) -> None:
+        pass
