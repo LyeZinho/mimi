@@ -86,17 +86,17 @@ Esperado: `Local: http://localhost:5173/`
 
 ## 🚀 Quick Start (Após Setup)
 
-Use o script de inicialização:
-
+### For Bash/Zsh:
 ```bash
-# Linux/Mac
 ./start_dev.sh
-
-# Windows
-start_dev.bat
 ```
 
-Isso mostrará os 3 comandos para abrir em terminais separados.
+### For Fish Shell:
+```fish
+source start_dev.fish
+```
+
+Both scripts show the 3 commands needed to run in separate terminals.
 
 ---
 
