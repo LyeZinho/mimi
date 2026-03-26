@@ -1,0 +1,57 @@
+# 🐚 Fish Shell Quick Reference
+
+You're using **Fish shell**, so here's the quick activation command:
+
+```fish
+source .venv/bin/activate.fish
+```
+
+Then run the agent:
+```fish
+python agent/main.py
+```
+
+---
+
+## Full 3-Terminal Startup
+
+### Terminal 1: WebSocket Server
+```fish
+cd web_avatar && node server.js
+```
+
+### Terminal 2: Python Agent (Fish ⭐)
+```fish
+cd /home/pedro/repo/mimi
+source .venv/bin/activate.fish
+python agent/main.py
+```
+
+### Terminal 3: Frontend
+```fish
+cd web_avatar && npm run dev
+```
+
+---
+
+## Why `.activate.fish`?
+
+- **Bash/Zsh** → `source .venv/bin/activate`
+- **Fish** → `source .venv/bin/activate.fish`
+
+Python's venv creates both automatically. Fish has different syntax than Bash, so it needs its own script.
+
+---
+
+## Alias (Optional)
+
+Add to `~/.config/fish/config.fish`:
+```fish
+alias v="source .venv/bin/activate.fish"
+```
+
+Then just: `v`
+
+---
+
+See: `docs/FISH_SHELL_SETUP.md` for full guide.
