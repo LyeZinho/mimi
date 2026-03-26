@@ -46,7 +46,7 @@ export default function App() {
         stateManager.isController = true;
       }
     });
-          <ModelUpload onModelLoaded={handleModelLoaded} />
+
     wsClient.onMessage((msg) => {
       // Handle incoming messages
       if (msg.type === 'avatar_control' && viewerRef.current) {
@@ -83,9 +83,11 @@ export default function App() {
       console.warn("WS Connect info", err); // Changed to warn to reduce noise
     });
 
-    // Performance loop for FPS
-    let lastTime = performance.now();
-    let frameCount = 0;
+    return () => {
+      wsClient.disconnect();
+    };
+  }, []);
+
   // Quando um modelo é carregado, envia para o backend para sincronizar
   const handleModelLoaded = (url) => {
     setModelUrl(url);
@@ -93,14 +95,17 @@ export default function App() {
       wsClientRef.current.send({ type: 'set_model', model: url });
     }
   };
-      // ...existing code...
-        viewer.animationManager.loadAnimation('Idle', '/animations/Idle.fbx')
-          .then(() => {
-            viewer.animationManager.play('Idle');
-            if (stateManagerRef.current) stateManagerRef.current.setAnimation('Idle');
-          })
-          .catch(e => console.warn("Idle anim missing", e));
-      }
+
+  const handleViewerReady = (viewer) => {
+    viewerRef.current = viewer;
+    // Initialize animations
+    if (viewer && viewer.animationManager) {
+      viewer.animationManager.loadAnimation('Idle', '/animations/Idle.fbx')
+        .then(() => {
+          viewer.animationManager.play('Idle');
+          if (stateManagerRef.current) stateManagerRef.current.setAnimation('Idle');
+        })
+        .catch(e => console.warn("Idle anim missing", e));
     }
   };
 
