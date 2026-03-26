@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union
 
 from .memory import Memory
 from .state import AgentState
+from .response_cache import ResponseCache
 
 if TYPE_CHECKING:
     from agent.avatar.interface import AvatarInterface
@@ -22,37 +23,42 @@ class AgentCore:
 
     def __init__(
         self,
-        memory: Memory | None = None,
-        state: AgentState | None = None,
-        llm: "LLMClient" | None = None,
-        router: "ActionRouter" | None = None,
-        registry: "ToolRegistry" | None = None,  # ToolRegistry
-        avatar: "AvatarInterface" | None = None,
+        memory: Union[Memory, None] = None,
+        state: Union[AgentState, None] = None,
+        llm: Union["LLMClient", None] = None,
+        router: Union["ActionRouter", None] = None,
+        registry: Any = None,
+        avatar: Union["AvatarInterface", None] = None,
+        cache: Union[ResponseCache, None] = None,
     ) -> None:
         self.memory = memory if memory is not None else Memory()
         self.state = state if state is not None else AgentState()
-        # Assuming LLMClient and ActionRouter can be instantiated without args if None
-        # If they require args, this needs adjustment or they must be provided.
         self.llm = llm or LLMClient()
         self.router = router or ActionRouter()
         self.registry = registry
         self.avatar = avatar
+        self.cache = cache or ResponseCache()
         self._running = False
 
     # ─────────────────────────── Ciclo principal ──────────────────────────
     async def handle_input(self, text: str, source: str = "text") -> dict[str, Any]:
-        """Processa entrada do usuário e gera resposta (com suporte a loops de ferramentas)."""
+        """Processa entrada do usuário e gera resposta (com suporte a loops de ferramentas e cache)."""
         logger.info("Entrada recebida [%s]: %s", source, text)
         self.memory.add(content=text, role="user", metadata={"source": source})
 
-        # Limite de segurança para evitar loops infinitos
+        cache_key = ResponseCache.get_cache_key(text)
+        
+        if cached_response := self.cache.get(cache_key):
+            logger.info("Cache hit para: %s", text[:50])
+            self.memory.add(content=cached_response.get("text", ""), role="assistant")
+            return cached_response
+
         MAX_TURNS = 3
         current_turn = 0
         
         while current_turn < MAX_TURNS:
             current_turn += 1
             
-            # 1. Recupera contexto e monta input
             history = [m.to_dict() for m in self.memory.recent(10)]
             state_summary = self.state.summary()
             
@@ -62,10 +68,9 @@ class AgentCore:
 
             tools_list = self.registry.list_tools() if self.registry else None
 
-            # 2. Chama LLM
             try:
                 intent = await self.llm.get_intent(
-                    user_message=text if current_turn == 1 else "(continuando pensamento...)", # No loop, o prompt é reconstruído com histórico atualizado
+                    user_message=text if current_turn == 1 else "(continuando pensamento...)",
                     history=history,
                     state=state_summary,
                     context=relevant_memories,
@@ -78,25 +83,23 @@ class AgentCore:
             
             logger.debug("Intenção recebida: %s", intent)
 
-            # 3. Verifica se é uso de ferramenta
             if intent.get("intent") == "use_tool" and self.registry:
-                tool_name = intent.get("tool")
-                tool_input = intent.get("tool_input")
+                tool_name = intent.get("tool", "")
+                tool_input = intent.get("tool_input", "")
                 
-                # Registra intenção de usar ferramenta (opcional, ou apenas o resultado)
-                # self.memory.add(content=f"Vou usar {tool_name} para buscar '{tool_input}'", role="assistant")
-
-                result_text = await self.router.execute_tool(tool_name, tool_input, self.registry)
-                
-                # Adiciona resultado ao histórico como 'system' para o LLM processar na próxima iteração
-                self.memory.add(content=f"Resultado da ferramenta {tool_name}: {result_text}", role="system")
-                continue # Volta para o início do loop para gerar a resposta final com o novo contexto
+                if tool_name and tool_input:
+                    result_text = await self.router.execute_tool(tool_name, tool_input, self.registry)
+                    
+                    self.memory.add(content=f"Resultado da ferramenta {tool_name}: {result_text}", role="system")
+                continue
             
-            # 4. Se não for ferramenta, executa ação final (speak/action)
             result = await self.router.execute(intent, agent=self)
             
             if "text" in intent:
                 self.memory.add(content=intent["text"], role="assistant")
+            
+            self.cache.set(cache_key, result)
+            self.cache.flush()
             
             return result
         
