@@ -10,7 +10,7 @@ import { AnimationManager } from './AnimationManager';
 import { ExpressionController } from './ExpressionController';
 
 export class AvatarViewer {
-    constructor(canvas) {
+    constructor(canvas, wsConnection = null) {
         this.canvas = canvas;
         this.scene = null;
         this.camera = null;
@@ -21,7 +21,15 @@ export class AvatarViewer {
         this.expressionController = null;
         this.clock = new THREE.Clock();
         this.animationId = null;
-        this.onCameraChange = null; // Callback
+        this.onCameraChange = null;
+
+        this.wsConnection = wsConnection;
+        this.frameCapture = {
+            enabled: false,
+            interval: 100,
+            lastCaptureTime: 0,
+            frameCount: 0
+        };
 
         this.init();
     }
@@ -254,21 +262,68 @@ export class AvatarViewer {
 
         const deltaTime = this.clock.getDelta();
 
-        // Update VRM
         if (this.vrm) {
             this.vrm.update(deltaTime);
         }
 
-        // Update Animation Manager
         if (this.animationManager) {
             this.animationManager.update(deltaTime);
         }
 
-        // Update controls
         this.controls.update();
 
-        // Render
         this.renderer.render(this.scene, this.camera);
+
+        this.captureFrame();
+    }
+
+    startFrameCapture(wsConnection) {
+        this.wsConnection = wsConnection;
+        this.frameCapture.enabled = true;
+        this.frameCapture.lastCaptureTime = Date.now();
+        console.log('[Mirror] Frame capture started (10 FPS)');
+    }
+
+    stopFrameCapture() {
+        this.frameCapture.enabled = false;
+        console.log('[Mirror] Frame capture stopped');
+    }
+
+    captureFrame() {
+        if (!this.frameCapture.enabled || !this.wsConnection) {
+            return;
+        }
+
+        const now = Date.now();
+        const timeSinceLastCapture = now - this.frameCapture.lastCaptureTime;
+
+        if (timeSinceLastCapture < this.frameCapture.interval) {
+            return;
+        }
+
+        try {
+            const frameData = this.canvas.toDataURL('image/png');
+
+            if (frameData.length > 2_000_000) {
+                console.warn('[Mirror] Frame too large, skipping:', frameData.length);
+                return;
+            }
+
+            const msg = {
+                type: 'mirror_frame',
+                frame_data: frameData,
+                timestamp: now
+            };
+
+            if (this.wsConnection.readyState === WebSocket.OPEN) {
+                this.wsConnection.send(JSON.stringify(msg));
+                this.frameCapture.frameCount++;
+            }
+
+            this.frameCapture.lastCaptureTime = now;
+        } catch (error) {
+            console.error('[Mirror] Failed to capture frame:', error);
+        }
     }
 
     dispose() {

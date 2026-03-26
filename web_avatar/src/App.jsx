@@ -169,6 +169,7 @@ export default function App() {
           modelUrl={modelUrl}
           onViewerReady={handleViewerReady}
           onModelLoaded={handleModelLoadedInViewer}
+          wsConnection={wsClientRef.current?.ws}
         />
       </div>
     );
@@ -204,6 +205,7 @@ export default function App() {
                 stateManagerRef.current.setCamera(cam.position, cam.target);
               }
             }}
+            wsConnection={wsClientRef.current?.ws}
           />
         </section>
 

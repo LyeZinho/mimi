@@ -1,8 +1,7 @@
-
 import React, { useEffect, useRef } from 'react';
 import { AvatarViewer } from '../logic/AvatarViewer';
 
-export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, onModelLoaded }) {
+export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, onModelLoaded, wsConnection = null }) {
   const canvasRef = useRef(null);
   const viewerRef = useRef(null);
   const lastModelUrlRef = useRef(null);
@@ -10,8 +9,7 @@ export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, 
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    // Initialize Viewer
-    const viewer = new AvatarViewer(canvasRef.current);
+    const viewer = new AvatarViewer(canvasRef.current, wsConnection);
     viewerRef.current = viewer;
 
     console.log('[AvatarCanvas] MONTADO');
@@ -20,12 +18,15 @@ export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, 
       onViewerReady(viewer);
     }
 
-    // Bind camera update
     viewer.onCameraChange = (cameraData) => {
       if (onCameraChange) {
         onCameraChange(cameraData);
       }
     };
+
+    if (wsConnection) {
+      viewer.startFrameCapture(wsConnection);
+    }
 
     const handleResize = () => {
       viewer.onWindowResize();
@@ -33,20 +34,18 @@ export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, 
 
     window.addEventListener('resize', handleResize);
 
-    // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
+      viewer.stopFrameCapture();
       viewer.dispose();
       viewerRef.current = null;
       console.log('[AvatarCanvas] DESMONTADO');
     };
-  }, []);
+  }, [wsConnection]);
 
-  // Load model when URL changes
   useEffect(() => {
     if (modelUrl && viewerRef.current) {
       if (lastModelUrlRef.current === modelUrl) {
-        // Mesmo modelo já carregado, não recarrega
         return;
       }
       lastModelUrlRef.current = modelUrl;
