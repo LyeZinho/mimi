@@ -170,7 +170,11 @@ class WebAvatar(AvatarInterface):
                 except json.JSONDecodeError:
                     pass
                 except Exception as e:
-                    logger.error(f"Erro processando mensagem: {e}")
+                    if "readonly database" in str(e):
+                        logger.warning(f"Database error (ignoring): {e}")
+                    else:
+                        logger.error(f"Erro processando mensagem: {e}")
+                    continue
         except Exception:
             pass
 

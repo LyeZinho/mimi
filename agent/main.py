@@ -40,7 +40,9 @@ async def main() -> None:
     logger.info("Iniciando agente em modo daemon...")
 
     # Componentes
-    memory = Memory(short_term_limit=30, db_path=DB_PATH)
+    # NOTE: Disabling DB persistence due to SQLite readonly issues in containerized env
+    # Use in-memory memory only (short_term) for now
+    memory = Memory(short_term_limit=30, db_path=None)
     state = AgentState(mood="neutral")
     llm = LLMClient(model=LLM_MODEL)
     tts = DummyTTS()

@@ -71,8 +71,12 @@ class LLMClient:
             {"role": "user", "content": user_prompt},
         ]
 
-        raw = await self._chat(messages)
-        logger.debug("Resposta bruta do LLM: %s", raw)
+        try:
+            raw = await self._chat(messages)
+            logger.debug("Resposta bruta do LLM: %s", raw)
+        except Exception as e:
+            logger.warning(f"Falha ao conectar ao LLM: {e}. Usando fallback.")
+            raw = f"Entendi. Você disse: {user_message}"
 
         # Tenta extrair JSON da resposta
         intent = self._parse_intent(raw)
