@@ -198,6 +198,11 @@ wss.on('connection', (ws) => {
         });
         break;
 
+      case 'agent_input':
+        // Message from agent or internal routing - just log
+        console.log(`Agent input forwarded: ${msg.text}`);
+        break;
+
       default:
         console.warn('Tipo de mensagem desconhecido:', msg.type);
     }
