@@ -20,7 +20,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-RUN npm install --prefer-offline --no-audit && cd web_avatar && npm install --prefer-offline --no-audit && cd ..
+RUN npm ci && cd web_avatar && npm ci && cd ..
 
 # Set PYTHONPATH for Python module imports
 ENV PYTHONPATH=/app

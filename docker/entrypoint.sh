@@ -36,7 +36,7 @@ echo -e "${GREEN}✓ Python Agent running (PID: $AGENT_PID)${NC}"
 # Start React Frontend
 echo -e "${BLUE}⚛️  Starting React Frontend...${NC}"
 cd /app/web_avatar
-npx vite &
+/app/web_avatar/node_modules/.bin/vite &
 REACT_PID=$!
 sleep 3
 echo -e "${GREEN}✓ React Frontend running (PID: $REACT_PID)${NC}"
