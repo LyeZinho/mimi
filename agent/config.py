@@ -15,9 +15,10 @@ BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# LLM
+# LLM (Ollama)
 LLM_MODEL = os.getenv("LLM_MODEL", "phi3:mini")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")  # For remote Ollama API
 
 # Banco de dados
 DB_PATH = DATA_DIR / "memory.db"

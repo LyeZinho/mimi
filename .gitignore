@@ -33,3 +33,8 @@ Thumbs.db
 
 # ffmpeg
 ffmpeg/
+
+# Environment
+.env
+.env.local
+.env.*.local

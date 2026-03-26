@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  mimi:
+    build: .
+    ports:
+      - "8765:8765"
+      - "5173:5173"
+    environment:
+      - OLLAMA_HOST=${OLLAMA_HOST}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
+      - WEBSOCKET_HOST=0.0.0.0
+    volumes:
+      - ./data:/app/data

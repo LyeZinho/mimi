@@ -36,13 +36,20 @@ class LLMClient:
 
     async def _chat(self, messages: list[dict[str, str]]) -> str:
         """Envia mensagens para a API de chat do Ollama."""
+        from agent.config import OLLAMA_API_KEY
+        
         url = f"{self.base_url}/api/chat"
+        headers = {}
+        if OLLAMA_API_KEY:
+            headers["Authorization"] = f"Bearer {OLLAMA_API_KEY}"
+        
         payload = {
             "model": self.model,
             "messages": messages,
             "stream": False,
         }
-        resp = await self._client.post(url, json=payload)
+        
+        resp = await self._client.post(url, json=payload, headers=headers if headers else None)
         resp.raise_for_status()
         data = resp.json()
         return data.get("message", {}).get("content", "")
