@@ -88,12 +88,17 @@ export default function App() {
     };
   }, []);
 
-  // Quando um modelo é carregado, envia para o backend para sincronizar
+  // Quando um modelo é carregado do upload, sincroniza
   const handleModelLoaded = (url) => {
     setModelUrl(url);
     if (wsClientRef.current) {
       wsClientRef.current.send({ type: 'set_model', model: url });
     }
+  };
+
+  // Callback quando o viewer termina de carregar o modelo
+  const handleModelLoadedInViewer = (vrm) => {
+    console.log('[App] Modelo carregado no viewer:', vrm);
   };
 
   const handleViewerReady = (viewer) => {
@@ -162,7 +167,7 @@ export default function App() {
         <AvatarCanvas
           modelUrl={modelUrl}
           onViewerReady={handleViewerReady}
-          onModelLoaded={handleModelLoaded}
+          onModelLoaded={handleModelLoadedInViewer}
         />
       </div>
     );
@@ -192,7 +197,7 @@ export default function App() {
           <AvatarCanvas
             modelUrl={modelUrl}
             onViewerReady={handleViewerReady}
-            onModelLoaded={handleModelLoaded}
+            onModelLoaded={handleModelLoadedInViewer}
             onCameraChange={(cam) => {
               if (stateManagerRef.current && stateManagerRef.current.isController) {
                 stateManagerRef.current.setCamera(cam.position, cam.target);
