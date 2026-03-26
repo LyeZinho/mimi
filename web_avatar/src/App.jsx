@@ -69,6 +69,7 @@ export default function App() {
       }
 
       if (msg.type === 'chat_response') {
+        console.log('[App] Chat response from agent:', msg.text);
         setChatMessages(prev => [...prev, { sender: 'agent', text: msg.text }]);
         if (window.speechSynthesis) {
           const utterance = new SpeechSynthesisUtterance(msg.text);
