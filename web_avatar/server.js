@@ -22,9 +22,28 @@ let avatarState = {
   lastUpdate: Date.now(),
 };
 
+// LLM Configuration state
+let llmConfig = {
+  model: process.env.LLM_MODEL || 'phi3:mini',
+  temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.7'),
+  max_tokens: parseInt(process.env.LLM_MAX_TOKENS || '1024'),
+  top_p: parseFloat(process.env.LLM_TOP_P || '0.9'),
+  top_k: parseInt(process.env.LLM_TOP_K || '40'),
+};
+
 // Função para broadcast para todos os clientes (exceto opcionalmente o remetente)
 function broadcastState(exceptWs = null) {
   const msg = JSON.stringify({ type: 'state', state: avatarState });
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN && client !== exceptWs) {
+      client.send(msg);
+    }
+  });
+}
+
+// Broadcast LLM config to all clients
+function broadcastLLMConfig(exceptWs = null) {
+  const msg = JSON.stringify({ type: 'llm_config', config: llmConfig });
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN && client !== exceptWs) {
       client.send(msg);
@@ -105,8 +124,8 @@ const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
   console.log('Cliente conectado');
-  // Envia o estado atual ao novo cliente
   ws.send(JSON.stringify({ type: 'state', state: avatarState }));
+  ws.send(JSON.stringify({ type: 'llm_config', config: llmConfig }));
 
   ws.on('message', async (data) => {
     let msg;
@@ -205,6 +224,65 @@ wss.on('connection', (ws) => {
       case 'agent_input':
         // Message from agent or internal routing - just log
         console.log(`Agent input forwarded: ${msg.text}`);
+        break;
+
+      case 'set_llm_model':
+        if (msg.model) {
+          const previousModel = llmConfig.model;
+          llmConfig.model = msg.model;
+          console.log(`LLM model changed: ${previousModel} -> ${msg.model}`);
+          broadcastLLMConfig();
+        }
+        break;
+
+      case 'set_llm_temperature':
+        if (msg.temperature !== undefined && msg.temperature >= 0 && msg.temperature <= 2) {
+          llmConfig.temperature = parseFloat(msg.temperature);
+          console.log(`LLM temperature set to: ${llmConfig.temperature}`);
+          broadcastLLMConfig();
+        }
+        break;
+
+      case 'set_llm_max_tokens':
+        if (msg.max_tokens && msg.max_tokens > 0) {
+          llmConfig.max_tokens = parseInt(msg.max_tokens);
+          console.log(`LLM max_tokens set to: ${llmConfig.max_tokens}`);
+          broadcastLLMConfig();
+        }
+        break;
+
+      case 'set_llm_top_p':
+        if (msg.top_p !== undefined && msg.top_p >= 0 && msg.top_p <= 1) {
+          llmConfig.top_p = parseFloat(msg.top_p);
+          console.log(`LLM top_p set to: ${llmConfig.top_p}`);
+          broadcastLLMConfig();
+        }
+        break;
+
+      case 'set_llm_top_k':
+        if (msg.top_k && msg.top_k > 0) {
+          llmConfig.top_k = parseInt(msg.top_k);
+          console.log(`LLM top_k set to: ${llmConfig.top_k}`);
+          broadcastLLMConfig();
+        }
+        break;
+
+      case 'set_llm_config':
+        if (msg.config) {
+          const updates = {};
+          if (msg.config.model) updates.model = msg.config.model;
+          if (msg.config.temperature !== undefined) updates.temperature = parseFloat(msg.config.temperature);
+          if (msg.config.max_tokens) updates.max_tokens = parseInt(msg.config.max_tokens);
+          if (msg.config.top_p !== undefined) updates.top_p = parseFloat(msg.config.top_p);
+          if (msg.config.top_k) updates.top_k = parseInt(msg.config.top_k);
+          llmConfig = { ...llmConfig, ...updates };
+          console.log('LLM config updated:', updates);
+          broadcastLLMConfig();
+        }
+        break;
+
+      case 'get_llm_config':
+        ws.send(JSON.stringify({ type: 'llm_config', config: llmConfig }));
         break;
 
       default:
