@@ -9,17 +9,14 @@ services:
     ports:
       - "8765:8765"
       - "5173:5173"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    env_file:
+      - .env
     environment:
       - PYTHONPATH=/app
-      - OLLAMA_HOST=https://api.ollama.ai
-      - OLLAMA_API_KEY=${OLLAMA_API_KEY}
-      - LLM_MODEL=${LLM_MODEL}
-      - AVATAR_TYPE=${AVATAR_TYPE}
       - WEBSOCKET_HOST=0.0.0.0
-      - WEBSOCKET_PORT=${WEBSOCKET_PORT}
-      - DB_PATH=${DB_PATH}
-      - PERSONA_PATH=${PERSONA_PATH}
-      - VITE_WS_URL=${VITE_WS_URL}
     volumes:
       - .:/app
       - /app/node_modules
