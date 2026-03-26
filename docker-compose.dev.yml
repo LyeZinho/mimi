@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  mimi:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: mimi-dev
+    ports:
+      - "8765:8765"
+      - "5173:5173"
+    environment:
+      - PYTHONPATH=/app
+      - OLLAMA_HOST=https://api.ollama.ai
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
+      - AVATAR_TYPE=${AVATAR_TYPE}
+      - WEBSOCKET_HOST=0.0.0.0
+      - WEBSOCKET_PORT=${WEBSOCKET_PORT}
+      - DB_PATH=${DB_PATH}
+      - PERSONA_PATH=${PERSONA_PATH}
+      - VITE_WS_URL=${VITE_WS_URL}
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/web_avatar/node_modules
+      - /app/.venv
+    working_dir: /app
+    command: /app/docker/entrypoint.sh
+    stdin_open: true
+    tty: true
