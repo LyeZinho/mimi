@@ -133,6 +133,7 @@ class WebAvatar(AvatarInterface):
                 try:
                     data = json.loads(message)
                     msg_type = data.get("type")
+                    logger.info(f"[LISTEN] Message received: type={msg_type}")
 
                     if msg_type == "set_model":
                         model_name = data.get("model")
@@ -141,6 +142,7 @@ class WebAvatar(AvatarInterface):
 
                     elif msg_type == "chat":
                         text = data.get("text")
+                        logger.info(f"[LISTEN] Chat message: {text}")
                         if text and self.agent:
                             logger.info(f"Chat recebido: {text}")
                             result = await self.agent.handle_input(text, source="web")
@@ -155,6 +157,7 @@ class WebAvatar(AvatarInterface):
 
                     elif msg_type == "agent_input":
                         text = data.get("text")
+                        logger.info(f"[LISTEN] Agent input: {text}")
                         if text and self.agent:
                             logger.info(f"Input recebido do backend: {text}")
                             result = await self.agent.handle_input(text, source="web")
@@ -166,6 +169,8 @@ class WebAvatar(AvatarInterface):
                                     "text": response_text
                                 })
                                 await self.speak_start()
+                        else:
+                            logger.warning(f"[LISTEN] Skipped agent_input: text={text}, agent={self.agent}")
 
                 except json.JSONDecodeError:
                     pass
@@ -173,10 +178,10 @@ class WebAvatar(AvatarInterface):
                     if "readonly database" in str(e):
                         logger.warning(f"Database error (ignoring): {e}")
                     else:
-                        logger.error(f"Erro processando mensagem: {e}")
+                        logger.error(f"[LISTEN] Erro processando mensagem: {e}", exc_info=True)
                     continue
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[LISTEN] Listen loop error: {e}", exc_info=True)
 
     async def send_command(self, data: dict) -> None:
         if self.connected and self.ws:

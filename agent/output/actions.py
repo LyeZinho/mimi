@@ -94,5 +94,15 @@ class ActionRouter:
     async def _handle_unknown(
         self, intent: dict[str, Any], agent: "AgentCore"
     ) -> dict[str, Any]:
-        logger.warning("Intent desconhecido: %s", intent)
-        return {"status": "unknown_intent", "intent": intent}
+        logger.warning(f"[ACTIONS] Unknown intent type: {intent.get('intent')}. Falling back to speak.")
+        # Gracefully handle unknown intents by treating them as "speak" with the text content
+        text = intent.get("text", str(intent))
+        emotion = intent.get("emotion", "neutral")
+        
+        # Fall back to speak handler
+        speak_intent = {
+            "intent": "speak",
+            "text": text,
+            "emotion": emotion
+        }
+        return await self._handle_speak(speak_intent, agent)

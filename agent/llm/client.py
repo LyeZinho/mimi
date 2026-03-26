@@ -49,10 +49,13 @@ class LLMClient:
             "stream": False,
         }
         
+        logger.info(f"[LLM] Sending to {url} with model={self.model}")
         resp = await self._client.post(url, json=payload, headers=headers if headers else None)
         resp.raise_for_status()
         data = resp.json()
-        return data.get("message", {}).get("content", "")
+        content = data.get("message", {}).get("content", "")
+        logger.info(f"[LLM] Response (first 300 chars): {content[:300]}")
+        return content
 
     async def get_intent(
         self,
@@ -73,40 +76,52 @@ class LLMClient:
 
         try:
             raw = await self._chat(messages)
-            logger.debug("Resposta bruta do LLM: %s", raw)
+            logger.info(f"[GET_INTENT] Got raw response from LLM")
         except Exception as e:
-            logger.warning(f"Falha ao conectar ao LLM: {e}. Usando fallback.")
+            logger.warning(f"[GET_INTENT] Falha ao conectar ao LLM: {e}. Usando fallback.")
             raw = f"Entendi. Você disse: {user_message}"
 
         # Tenta extrair JSON da resposta
+        logger.info(f"[GET_INTENT] Parsing intent from response")
         intent = self._parse_intent(raw)
+        logger.info(f"[GET_INTENT] Final intent: {intent.get('intent')}")
         return intent
 
     def _parse_intent(self, raw: str) -> dict[str, Any]:
         """Extrai JSON da resposta do LLM (com fallback)."""
-        logger.debug("Tentando extrair JSON de: %s", raw)
+        logger.info(f"[PARSE] Raw response (first 200 chars): {raw[:200]}")
 
         # 1. Tenta remover blocos de código markdown
         clean_text = re.sub(r"```json\s*(.*?)\s*```", r"\1", raw, flags=re.DOTALL)
         clean_text = re.sub(r"```\s*(.*?)\s*```", r"\1", clean_text, flags=re.DOTALL)
         
+        if clean_text != raw:
+            logger.info(f"[PARSE] After markdown removal: {clean_text[:200]}")
+        
         # 2. Tenta encontrar o PRIMEIRO objeto JSON válido
         # Procura por chaves balanceadas (simplificado)
-        matches = re.finditer(r"\{.*?\}", clean_text, re.DOTALL)
+        matches = list(re.finditer(r"\{.*?\}", clean_text, re.DOTALL))
+        logger.info(f"[PARSE] Found {len(matches)} JSON candidates")
         
-        for match in matches:
+        for i, match in enumerate(matches):
             candidate = match.group()
+            logger.info(f"[PARSE] Trying candidate {i}: {candidate[:100]}")
             try:
                 data = json.loads(candidate)
+                logger.info(f"[PARSE] Valid JSON: {data}")
                 # Verifica se parece um intent válido
                 if "intent" in data:
+                    logger.info(f"[PARSE] ✓ Intent found: {data.get('intent')}")
                     return data
-            except json.JSONDecodeError:
+                else:
+                    logger.info(f"[PARSE] No 'intent' key in parsed JSON")
+            except json.JSONDecodeError as e:
+                logger.info(f"[PARSE] Candidate {i} failed: {e}")
                 continue
 
         # 3. Fallback: resposta como fala simples
         # Se não achou JSON, usa o texto todo, limpando possíveis sobras
-        logger.warning("Falha ao extrair JSON. Usando fallback.")
+        logger.warning(f"[PARSE] Failed to extract JSON. Using fallback. Raw={raw[:150]}")
         return {
             "intent": "speak",
             "text": clean_text.strip(),

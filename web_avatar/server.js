@@ -174,11 +174,15 @@ wss.on('connection', (ws) => {
 
           // Manual broadcast of the chat event
           const chatMsg = JSON.stringify({ type: 'agent_input', text: text, sender: 'user' });
+          let broadcastCount = 0;
           wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN && client !== ws) {
+              console.log(`[BROADCAST] Sending agent_input to client`);
               client.send(chatMsg);
+              broadcastCount++;
             }
           });
+          console.log(`[BROADCAST] Forwarded to ${broadcastCount} clients`);
         }
         break;
 

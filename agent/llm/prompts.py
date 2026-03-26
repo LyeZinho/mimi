@@ -36,7 +36,7 @@ def build_system_prompt(state: dict[str, Any], tools: list[dict[str, Any]] | Non
         tools_block = "\n".join(tools_list)
         tools_text = (
             f"\nFerramentas disponíveis:\n{tools_block}\n"
-            "Para usar, retorne JSON ESTRITAMENTE neste formato:\n"
+            "Para usar, retorne JSON ESTRITAMENTE neste formato (SEM markdown, SEM blocos de código):\n"
             '{{"intent": "use_tool", "tool": "nome_da_ferramenta", "tool_input": "entrada em texto simples"}}\n'
             'Exemplo: {{"intent": "use_tool", "tool": "weather", "tool_input": "São Paulo"}}\n'
         )
@@ -51,6 +51,8 @@ Regras:
 {tools_text}
 Estado atual do agente:
 {{state_json}}
+
+IMPORTANTE: Sempre retorne APENAS JSON válido, SEM markdown, SEM blocos de código (```), SEM comentários.
 """
     return template.format(state_json=json.dumps(state, ensure_ascii=False, indent=2))
 
@@ -62,6 +64,7 @@ def build_user_prompt(
 ) -> str:
     persona = load_persona()
     max_history = persona.get("max_history_items", 5)
+    intents = persona.get("intents", ["speak"])
     
     lines = []
     # Respeita o limite configurado
@@ -84,16 +87,21 @@ def build_user_prompt(
         context_block = "\n".join(context_lines)
         context_text = f"\nMemórias Relevantes:\n{context_block}\n"
     
-    template = """\
+    intents_list = ", ".join(intents)
+    
+    template = f"""\
 Histórico recente:
 {history_text}
 {context_text}
 Usuário: {user_message}
 
-Responda em JSON:
+Responda com APENAS JSON válido (SEM markdown ```, SEM comentários).
+Campos obrigatórios:
+- "intent": um de {intents_list}
+- "text": sua resposta em português
+- "emotion": como você se sente
+
+Estrutura:
+{{"intent": "speak", "text": "sua resposta aqui", "emotion": "neutro"}}
 """
-    return template.format(
-        history_text=history_text, 
-        context_text=context_text,
-        user_message=user_message
-    )
+    return template

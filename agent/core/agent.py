@@ -63,13 +63,19 @@ class AgentCore:
             tools_list = self.registry.list_tools() if self.registry else None
 
             # 2. Chama LLM
-            intent = await self.llm.get_intent(
-                user_message=text if current_turn == 1 else "(continuando pensamento...)", # No loop, o prompt é reconstruído com histórico atualizado
-                history=history,
-                state=state_summary,
-                context=relevant_memories,
-                tools=tools_list,
-            )
+            try:
+                intent = await self.llm.get_intent(
+                    user_message=text if current_turn == 1 else "(continuando pensamento...)", # No loop, o prompt é reconstruído com histórico atualizado
+                    history=history,
+                    state=state_summary,
+                    context=relevant_memories,
+                    tools=tools_list,
+                )
+                logger.info(f"[AGENT] Intent received: {intent}")
+            except Exception as e:
+                logger.error(f"[AGENT] LLM error on turn {current_turn}: {e}", exc_info=True)
+                return {"status": "error", "error": str(e)}
+            
             logger.debug("Intenção recebida: %s", intent)
 
             # 3. Verifica se é uso de ferramenta
