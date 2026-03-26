@@ -5,14 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from pathlib import Path
 
 from agent.avatar.interface import DummyAvatar, WebAvatar
 from agent.core.agent import AgentCore
 from agent.core.memory import Memory
 from agent.core.state import AgentState
-from agent.input.manager import InputManager
-from agent.input.text import TextInput
 from agent.llm.client import LLMClient
 from agent.output.actions import ActionRouter
 from agent.output.tts import DummyTTS
@@ -36,11 +33,11 @@ def create_avatar() -> DummyAvatar | WebAvatar:
 
 
 async def main() -> None:
-    """Inicializa e executa o agente."""
+    """Inicializa e executa o agente como daemon WebSocket."""
     print("=" * 50)
-    print("  Mimi – Agente de IA Interativo Multimodal")
+    print("  Mimi – Agente de IA Interativo Multimodal (Daemon Mode)")
     print("=" * 50)
-    print("Digite sua mensagem (ou 'sair' para encerrar).\n")
+    logger.info("Iniciando agente em modo daemon...")
 
     # Componentes
     memory = Memory(short_term_limit=30, db_path=DB_PATH)
@@ -49,12 +46,12 @@ async def main() -> None:
     tts = DummyTTS()
     avatar = create_avatar()
     router = ActionRouter(tts=tts, avatar=avatar)
-    registry = ToolRegistry() # Nova dependência
-    
+    registry = ToolRegistry()
+
     agent = AgentCore(
-        memory=memory, 
-        state=state, 
-        llm=llm, 
+        memory=memory,
+        state=state,
+        llm=llm,
         router=router,
         registry=registry,
         avatar=avatar
@@ -62,30 +59,25 @@ async def main() -> None:
 
     if isinstance(avatar, WebAvatar):
         avatar.set_agent(agent)
+        logger.info("Agent configurado para WebAvatar")
 
-    # Input via texto
-    input_manager = InputManager()
-    text_input = TextInput(input_manager)
-
-    # Handler para processar eventos
-    async def on_input(event):
-        await agent.handle_input(event.content, source=event.source)
-
-    input_manager.register_handler(on_input)
-
-    # Conecta avatar
-    await avatar.connect()
-
-    # Loop principal
     try:
-        await text_input.run(prompt="Você: ")
+        # Conecta avatar (inicia listen_loop)
+        await avatar.connect()
+        logger.info("Avatar conectado. Esperando mensagens...")
+
+        # Loop infinito para manter o daemon ativo
+        while True:
+            await asyncio.sleep(1)
     except KeyboardInterrupt:
-        pass
+        logger.info("Interrupção recebida")
+    except Exception as e:
+        logger.error(f"Erro no daemon: {e}")
     finally:
         # Desconecta avatar
         await avatar.disconnect()
         await agent.shutdown()
-        print("\nAté logo! 👋")
+        logger.info("Daemon encerrado")
 
 
 if __name__ == "__main__":

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import websockets
 from pydantic import BaseModel
@@ -110,10 +109,10 @@ class WebAvatar(AvatarInterface):
             self.ws = await websockets.connect(uri)
             self.connected = True
             logger.info("Conectado ao backend WebAvatar")
-            
+
             # Start listening loop
             self.listen_task = asyncio.create_task(self._listen_loop())
-            
+
         except Exception as e:
             logger.error(f"Falha ao conectar ao backend: {e}")
             self.connected = False
@@ -134,24 +133,40 @@ class WebAvatar(AvatarInterface):
                 try:
                     data = json.loads(message)
                     msg_type = data.get("type")
-                    
-                    if msg_type == "agent_input":
+
+                    if msg_type == "set_model":
+                        model_name = data.get("model")
+                        if model_name:
+                            logger.info(f"Modelo recebido: {model_name}")
+
+                    elif msg_type == "chat":
                         text = data.get("text")
                         if text and self.agent:
-                            logger.info(f"Input recebido do backend: {text}")
-                            # Process with agent
+                            logger.info(f"Chat recebido: {text}")
                             result = await self.agent.handle_input(text, source="web")
-                            
-                            # Send response back
+
                             response_text = result.get("text") or result.get("response")
                             if response_text:
                                 await self.send_command({
                                     "type": "agent_response",
                                     "text": response_text
                                 })
-                                # Also send speak command
                                 await self.speak_start()
-                                
+
+                    elif msg_type == "agent_input":
+                        text = data.get("text")
+                        if text and self.agent:
+                            logger.info(f"Input recebido do backend: {text}")
+                            result = await self.agent.handle_input(text, source="web")
+
+                            response_text = result.get("text") or result.get("response")
+                            if response_text:
+                                await self.send_command({
+                                    "type": "agent_response",
+                                    "text": response_text
+                                })
+                                await self.speak_start()
+
                 except json.JSONDecodeError:
                     pass
                 except Exception as e:

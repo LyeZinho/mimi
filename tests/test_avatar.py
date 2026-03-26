@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent.avatar.interface import DummyAvatar, UnityAvatar
+from agent.avatar.interface import DummyAvatar, WebAvatar
 
 
 class TestAvatarIntegration:
@@ -22,19 +22,18 @@ class TestAvatarIntegration:
         await avatar.disconnect()
 
     @pytest.mark.asyncio
-    async def test_unity_avatar_creation(self):
-        """Testa criação do UnityAvatar."""
-        avatar = UnityAvatar(uri="ws://test:8080/")
+    async def test_web_avatar_creation(self):
+        """Testa criação do WebAvatar."""
+        avatar = WebAvatar(host="localhost", port=8765)
         
-        # Não conecta pois não há servidor
         assert not avatar.connected
-        assert avatar.uri == "ws://test:8080/"
+        assert avatar.host == "localhost"
+        assert avatar.port == 8765
 
     def test_avatar_interface(self):
         """Testa contrato da interface."""
         avatar = DummyAvatar()
         
-        # Verifica métodos existem
         assert hasattr(avatar, 'connect')
         assert hasattr(avatar, 'disconnect')
         assert hasattr(avatar, 'set_expression')
