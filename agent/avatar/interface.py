@@ -42,6 +42,11 @@ class AvatarInterface(ABC):
         ...
 
     @abstractmethod
+    async def speak_end(self) -> None:
+        """Notifica fim da fala."""
+        ...
+
+    @abstractmethod
     async def load_model_from_path(self, path: str) -> None:
         """Carrega modelo VRM de um caminho absoluto."""
         ...

@@ -67,7 +67,6 @@ def build_user_prompt(
     intents = persona.get("intents", ["speak"])
     
     lines = []
-    # Respeita o limite configurado
     for entry in history[-max_history:]:
         role = entry.get("role", "user")
         content = entry.get("content", "")
@@ -75,12 +74,10 @@ def build_user_prompt(
         
     history_text = "\n".join(lines) if lines else "(sem histórico)"
     
-    # Formata contexto (RAG)
     context_text = ""
     if context:
         context_lines = []
         for ctx in context:
-            # Mostra apenas conteúdo e role para o LLM
             c_role = ctx.get("role", "unknown")
             c_content = ctx.get("content", "")
             context_lines.append(f"- [{c_role}] {c_content}")
@@ -99,9 +96,10 @@ Responda com APENAS JSON válido (SEM markdown ```, SEM comentários).
 Campos obrigatórios:
 - "intent": um de {intents_list}
 - "text": sua resposta em português
-- "emotion": como você se sente
+- "emotion": como você se sente (ex: happy, sad, confused, excited, neutral, thinking)
+- "gesture": gesto físico opcional (ex: wave, jump, head_tilt) ou null
 
 Estrutura:
-{{"intent": "speak", "text": "sua resposta aqui", "emotion": "neutro"}}
+{{"intent": "speak", "text": "sua resposta aqui", "emotion": "neutral", "gesture": null}}
 """
     return template

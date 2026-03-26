@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Coroutine
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Union
 
+from agent.avatar.emotion_mapper import EmotionMapper
 from .tts import DummyTTS, TTSEngine
 
 if TYPE_CHECKING:
@@ -22,10 +24,11 @@ ActionHandler = Callable[
 class ActionRouter:
     """Mapeia intenções para ações concretas."""
 
-    def __init__(self, tts: TTSEngine | None = None, avatar: "AvatarInterface" | None = None) -> None:
+    def __init__(self, tts: Union[TTSEngine, None] = None, avatar: Union["AvatarInterface", None] = None) -> None:
         self.tts = tts or DummyTTS()
         self.avatar = avatar
         self._handlers: dict[str, ActionHandler] = {}
+        self.emotion_mapper = EmotionMapper()
         self._register_defaults()
 
     def _register_defaults(self) -> None:
@@ -66,11 +69,12 @@ class ActionRouter:
     ) -> dict[str, Any]:
         text = intent.get("text", "")
         emotion = intent.get("emotion", "neutral")
+        
+        emotion_config = self.emotion_mapper.map_emotion(emotion)
         agent.state.speaking = True
         
-        # Controla avatar se disponível
         if self.avatar:
-            await self.avatar.set_expression(emotion)
+            await self.avatar.set_expression(emotion_config["expression"])
             await self.avatar.speak_start()
         
         await self.tts.speak(text, emotion)
@@ -79,7 +83,16 @@ class ActionRouter:
             await self.avatar.speak_end()
         
         agent.state.speaking = False
-        return {"status": "spoken", "text": text}
+        
+        return {
+            "status": "spoken",
+            "text": text,
+            "emotion": emotion,
+            "expression": emotion_config["expression"],
+            "animation": emotion_config["animation"],
+            "gesture": emotion_config.get("gesture"),
+            "duration_ms": emotion_config["duration_ms"],
+        }
 
     async def _handle_change_state(
         self, intent: dict[str, Any], agent: "AgentCore"
