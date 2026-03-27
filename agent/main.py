@@ -15,6 +15,7 @@ from agent.config import (
     WEBSOCKET_HOST,
     WEBSOCKET_PORT,
 )
+from agent.core.health_check import BrainHealthCheck
 from agent.llm.config import OllamaConfig
 from agent.llm.ollama_provider import OllamaProvider
 from agent.orchestrator import AgentOrchestrator
@@ -127,6 +128,27 @@ async def main() -> None:
         await orchestrator.initialize()
         await orchestrator.start()
         logger.info("Orchestrator started with all brains")
+
+        # Run health checks on all brains
+        logger.info("Running brain health checks...")
+        health_check = BrainHealthCheck(orchestrator.event_bus)
+
+        brains = {
+            "InputBrain": orchestrator.input_brain,
+            "ReasoningBrain": orchestrator.reasoning_brain,
+            "PlanningBrain": orchestrator.planning_brain,
+            "ExecutionBrain": orchestrator.execution_brain,
+            "SentimentBrain": orchestrator.sentiment_brain,
+            "AvatarBrain": orchestrator.avatar_brain,
+            "OutputBrain": orchestrator.output_brain,
+        }
+
+        all_operational = await health_check.run(brains, timeout=10)
+
+        if all_operational:
+            logger.info("✅ All brains operational - Agent ready")
+        else:
+            logger.warning("⚠️ Some brains failed health check - starting with warnings")
 
         # Start Bridge
         await bridge.start()
