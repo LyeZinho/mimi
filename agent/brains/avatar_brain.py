@@ -65,3 +65,28 @@ class AvatarBrain(Brain):
             "surprised": "surprised_face",
         }
         return emotion_map.get(sentiment, "neutral")
+
+    async def health_check(self) -> dict:
+        """Verify AvatarBrain is operational."""
+        try:
+            if not hasattr(self, "avatar") or self.avatar is None:
+                return {
+                    "name": "AvatarBrain",
+                    "status": "failed",
+                    "details": "Avatar interface not attached",
+                }
+
+            if not hasattr(self, "bus") or self.bus is None:
+                return {
+                    "name": "AvatarBrain",
+                    "status": "failed",
+                    "details": "EventBus not attached",
+                }
+
+            return {
+                "name": "AvatarBrain",
+                "status": "operational",
+                "details": "All components initialized",
+            }
+        except Exception as e:
+            return {"name": "AvatarBrain", "status": "failed", "details": str(e)}

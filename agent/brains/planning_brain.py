@@ -73,3 +73,21 @@ class PlanningBrain(Brain):
             return [{"type": "state_update", "target": "avatar"}]
         else:
             return [{"type": "speak", "target": "tts"}]
+
+    async def health_check(self) -> dict:
+        """Verify PlanningBrain is operational."""
+        try:
+            if not hasattr(self, "bus") or self.bus is None:
+                return {
+                    "name": "PlanningBrain",
+                    "status": "failed",
+                    "details": "EventBus not attached",
+                }
+
+            return {
+                "name": "PlanningBrain",
+                "status": "operational",
+                "details": "All components initialized",
+            }
+        except Exception as e:
+            return {"name": "PlanningBrain", "status": "failed", "details": str(e)}

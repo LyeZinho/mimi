@@ -168,3 +168,42 @@ class InputBrain(Brain):
             )
         finally:
             self.current_transcript = ""
+
+    async def health_check(self) -> dict:
+        """Verify InputBrain is operational."""
+        try:
+            if self.vad_engine is None:
+                return {
+                    "name": "InputBrain",
+                    "status": "failed",
+                    "details": "VAD engine not initialized",
+                }
+
+            if self.stt_engine is None:
+                return {
+                    "name": "InputBrain",
+                    "status": "failed",
+                    "details": "STT engine not initialized",
+                }
+
+            if self.buffer_manager is None:
+                return {
+                    "name": "InputBrain",
+                    "status": "failed",
+                    "details": "Buffer manager not initialized",
+                }
+
+            if not hasattr(self, "bus") or self.bus is None:
+                return {
+                    "name": "InputBrain",
+                    "status": "failed",
+                    "details": "EventBus not attached",
+                }
+
+            return {
+                "name": "InputBrain",
+                "status": "operational",
+                "details": "All components initialized",
+            }
+        except Exception as e:
+            return {"name": "InputBrain", "status": "failed", "details": str(e)}

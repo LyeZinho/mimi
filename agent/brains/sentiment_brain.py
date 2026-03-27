@@ -70,3 +70,21 @@ class SentimentBrain(Brain):
             return "sad"
         else:
             return "neutral"
+
+    async def health_check(self) -> dict:
+        """Verify SentimentBrain is operational."""
+        try:
+            if not hasattr(self, "bus") or self.bus is None:
+                return {
+                    "name": "SentimentBrain",
+                    "status": "failed",
+                    "details": "EventBus not attached",
+                }
+
+            return {
+                "name": "SentimentBrain",
+                "status": "operational",
+                "details": "All components initialized",
+            }
+        except Exception as e:
+            return {"name": "SentimentBrain", "status": "failed", "details": str(e)}

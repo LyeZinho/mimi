@@ -113,3 +113,45 @@ class ReasoningBrain(Brain):
         except LLMProviderError as e:
             logger.error(f"LLM provider error: {e}", exc_info=True)
             raise
+
+    async def health_check(self) -> dict:
+        """Verify ReasoningBrain is operational."""
+        try:
+            if self.llm_provider is None:
+                return {
+                    "name": "ReasoningBrain",
+                    "status": "failed",
+                    "details": "LLM provider not initialized",
+                }
+
+            if not hasattr(self, "bus") or self.bus is None:
+                return {
+                    "name": "ReasoningBrain",
+                    "status": "failed",
+                    "details": "EventBus not attached",
+                }
+
+            try:
+                is_valid = await asyncio.wait_for(
+                    self.llm_provider.validate_connection(), timeout=5.0
+                )
+                if not is_valid:
+                    return {
+                        "name": "ReasoningBrain",
+                        "status": "failed",
+                        "details": "LLM connection validation failed",
+                    }
+            except asyncio.TimeoutError:
+                return {
+                    "name": "ReasoningBrain",
+                    "status": "timeout",
+                    "details": "LLM connection timeout",
+                }
+
+            return {
+                "name": "ReasoningBrain",
+                "status": "operational",
+                "details": "LLM provider operational",
+            }
+        except Exception as e:
+            return {"name": "ReasoningBrain", "status": "failed", "details": str(e)}

@@ -100,3 +100,21 @@ class OutputBrain(Brain):
                 "duration_ms": 0,
                 "error": str(e),
             })
+
+    async def health_check(self) -> dict:
+        """Verify OutputBrain is operational."""
+        try:
+            if not hasattr(self, "bus") or self.bus is None:
+                return {
+                    "name": "OutputBrain",
+                    "status": "failed",
+                    "details": "EventBus not attached",
+                }
+
+            return {
+                "name": "OutputBrain",
+                "status": "operational",
+                "details": "All components initialized",
+            }
+        except Exception as e:
+            return {"name": "OutputBrain", "status": "failed", "details": str(e)}

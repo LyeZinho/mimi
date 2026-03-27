@@ -78,3 +78,21 @@ class ExecutionBrain(Brain):
             return {"status": "applied", "type": "state_update"}
         else:
             return {"status": "noop", "type": action_type}
+
+    async def health_check(self) -> dict:
+        """Verify ExecutionBrain is operational."""
+        try:
+            if not hasattr(self, "bus") or self.bus is None:
+                return {
+                    "name": "ExecutionBrain",
+                    "status": "failed",
+                    "details": "EventBus not attached",
+                }
+
+            return {
+                "name": "ExecutionBrain",
+                "status": "operational",
+                "details": "All components initialized",
+            }
+        except Exception as e:
+            return {"name": "ExecutionBrain", "status": "failed", "details": str(e)}
