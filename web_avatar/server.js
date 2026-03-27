@@ -9,7 +9,7 @@ const PORT = 8765;
 
 // Estado global do avatar
 let avatarState = {
-  model: null,
+  model: 'Mimi.vrm',
   expression: 'neutral',
   animation: null,
   animationLoop: true,
@@ -467,6 +467,16 @@ wss.on('connection', (ws) => {
             }
           });
         }
+        break;
+
+      case 'avatar_control':
+        // Forward emotion/gesture/speaking commands from Python agent to frontend
+        console.log('[AVATAR] Control message:', msg.emotion || msg.gesture || 'unknown');
+        wss.clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN && client !== ws) {
+            client.send(JSON.stringify(msg));
+          }
+        });
         break;
 
       default:
