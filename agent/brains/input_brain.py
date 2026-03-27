@@ -39,12 +39,42 @@ class InputBrain(Brain):
         logger.info(f"[{self.brain_id}] VAD and STT initialized")
     
     async def process(self) -> None:
-        """Processa áudio: VAD -> STT."""
-        await asyncio.sleep(0.1)  # Placeholder
+        """Processa áudio: captura via sounddevice, VAD, STT."""
+        try:
+            import sounddevice as sd
+        except ImportError:
+            logger.warning(f"[{self.brain_id}] sounddevice not available, audio capture disabled")
+            while self._running:
+                await asyncio.sleep(1.0)
+            return
         
-        # TODO: integrar com sounddevice para capturar áudio
-        # TODO: integrar com webrtcvad para VAD
-        # TODO: integrar com faster-whisper para STT
+        logger.info(f"[{self.brain_id}] Starting audio capture loop")
+        sample_rate = 16000
+        frame_size = int(sample_rate * 0.02)  # 20ms frames
+        
+        try:
+            stream = sd.InputStream(
+                samplerate=sample_rate,
+                channels=1,
+                dtype='int16',
+                blocksize=frame_size,
+            )
+            stream.start()
+            
+            while self._running:
+                data, overflowed = stream.read(frame_size)
+                if overflowed:
+                    logger.warning("Audio buffer overflow")
+                
+                audio_bytes = data.tobytes()
+                await self.handle_audio_frame(audio_bytes)
+            
+            stream.stop()
+            stream.close()
+        except Exception as e:
+            logger.error(f"[{self.brain_id}] Audio capture error: {e}")
+            while self._running:
+                await asyncio.sleep(1.0)
     
     async def handle_audio_frame(self, data: bytes) -> None:
         """
