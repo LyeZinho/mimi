@@ -153,7 +153,29 @@ async def main() -> None:
         if all_operational:
             logger.info("✅ All brains operational - Agent ready")
         else:
-            logger.warning("⚠️ Some brains failed health check - starting with warnings")
+            # Collect detailed information about failed brains
+            failed_brains = []
+            timeout_brains = []
+            for brain_name, result in health_check.results.items():
+                status = result.get("status", "unknown")
+                details = result.get("details", "unknown reason")
+                if status == "failed":
+                    failed_brains.append(f"✗ {brain_name}: {details}")
+                elif status == "timeout":
+                    timeout_brains.append(f"⚠ {brain_name}: {details}")
+
+            # Log detailed warnings
+            if failed_brains or timeout_brains:
+                logger.warning(
+                    "⚠️ Brain health check issues detected:"
+                )
+                for brain_issue in failed_brains:
+                    logger.error(f"  {brain_issue}")
+                for brain_issue in timeout_brains:
+                    logger.warning(f"  {brain_issue}")
+                logger.warning(
+                    "Starting agent anyway - some functionality may be degraded"
+                )
 
         # Now start orchestrator (begins background processing loops)
         await orchestrator.start()
