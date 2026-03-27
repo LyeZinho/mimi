@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 
 from agent.avatar.interface import DummyAvatar, WebAvatar
 from agent.bridge import OrchestratorBridge
-from agent.orchestrator import AgentOrchestrator
+from agent.config import (
+    AVATAR_TYPE,
+    LLM_MODEL,
+    WEBSOCKET_HOST,
+    WEBSOCKET_PORT,
+)
 from agent.llm.config import OllamaConfig
 from agent.llm.ollama_provider import OllamaProvider
-from agent.config import (
-    AVATAR_TYPE, LLM_MODEL, WEBSOCKET_HOST, WEBSOCKET_PORT,
-)
+from agent.orchestrator import AgentOrchestrator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +25,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-import os
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "https://api.ollama.ai")
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
 
@@ -37,8 +40,9 @@ def create_avatar() -> DummyAvatar | WebAvatar:
 def create_tts_provider():
     """Create TTS provider with graceful fallback."""
     try:
-        from agent.output.piper_provider import PiperProvider
         from agent.output.config import PiperConfig
+        from agent.output.piper_provider import PiperProvider
+
         config = PiperConfig(provider="piper", model="pt_PT")
         provider = PiperProvider(config)
         logger.info("PiperTTS provider initialized")
@@ -62,7 +66,9 @@ def create_llm_provider():
         logger.info(f"OllamaProvider initialized (model={LLM_MODEL}, host={host})")
         return provider
     except Exception as e:
-        logger.warning(f"OllamaProvider not available ({e}), ReasoningBrain will use fallback")
+        logger.warning(
+            f"OllamaProvider not available ({e}), ReasoningBrain will use fallback"
+        )
         return None
 
 
@@ -92,6 +98,7 @@ async def main() -> None:
 
     # Set Bridge as message handler on WebAvatar
     if isinstance(avatar, WebAvatar):
+
         async def on_ws_message(data: dict):
             """Bridge callback for incoming WebSocket messages."""
             msg_type = data.get("type")
@@ -103,7 +110,7 @@ async def main() -> None:
                 pass  # State updates handled by WebAvatar natively
             else:
                 logger.debug(f"Unhandled WS message type in bridge: {msg_type}")
-        
+
         avatar.set_message_callback(on_ws_message)
 
     try:
@@ -139,7 +146,7 @@ async def main() -> None:
         await bridge.stop()
         await orchestrator.stop()
         await avatar.disconnect()
-        if llm_provider and hasattr(llm_provider, 'close'):
+        if llm_provider and hasattr(llm_provider, "close"):
             await llm_provider.close()
         logger.info("Daemon stopped")
 

@@ -7,7 +7,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import websockets
 from pydantic import BaseModel
@@ -17,15 +17,16 @@ logger = logging.getLogger(__name__)
 
 class AvatarCommand(BaseModel):
     """Comando para enviar ao avatar."""
+
     type: str = "avatar_control"
-    emotion: Optional[str] = None
-    gesture: Optional[str] = None
+    emotion: str | None = None
+    gesture: str | None = None
     speak: bool = False
-    speech_text: Optional[str] = None
-    audio_base64: Optional[str] = None
-    model_path: Optional[str] = None
-    model_base64: Optional[str] = None
-    model_name: Optional[str] = None
+    speech_text: str | None = None
+    audio_base64: str | None = None
+    model_path: str | None = None
+    model_base64: str | None = None
+    model_name: str | None = None
 
 
 class AvatarInterface(ABC):
@@ -163,10 +164,9 @@ class WebAvatar(AvatarInterface):
 
                             response_text = result.get("text") or result.get("response")
                             if response_text:
-                                await self.send_command({
-                                    "type": "agent_response",
-                                    "text": response_text
-                                })
+                                await self.send_command(
+                                    {"type": "agent_response", "text": response_text}
+                                )
                                 await self.speak_start()
 
                     elif msg_type == "agent_input":
@@ -178,13 +178,13 @@ class WebAvatar(AvatarInterface):
 
                             response_text = result.get("text") or result.get("response")
                             if response_text:
-                                await self.send_command({
-                                    "type": "agent_response",
-                                    "text": response_text
-                                })
+                                await self.send_command(
+                                    {"type": "agent_response", "text": response_text}
+                                )
                                 await self.speak_start()
                         else:
-                            logger.warning(f"[LISTEN] Skipped agent_input: text={text}, agent={self.agent}")
+                            msg = f"[LISTEN] Skipped agent_input: {text[:50]}"
+                            logger.warning(msg)
 
                 except json.JSONDecodeError:
                     pass
@@ -192,7 +192,9 @@ class WebAvatar(AvatarInterface):
                     if "readonly database" in str(e):
                         logger.warning(f"Database error (ignoring): {e}")
                     else:
-                        logger.error(f"[LISTEN] Erro processando mensagem: {e}", exc_info=True)
+                        logger.error(
+                            f"[LISTEN] Erro processando mensagem: {e}", exc_info=True
+                        )
                     continue
         except Exception as e:
             logger.error(f"[LISTEN] Listen loop error: {e}", exc_info=True)
@@ -205,29 +207,17 @@ class WebAvatar(AvatarInterface):
                 logger.error(f"Erro ao enviar comando: {e}")
 
     async def set_expression(self, name: str) -> None:
-        await self.send_command({
-            "type": "set_expression",
-            "expression": name
-        })
+        await self.send_command({"type": "set_expression", "expression": name})
 
     async def speak_start(self) -> None:
-        await self.send_command({
-            "type": "set_speaking",
-            "speaking": True
-        })
+        await self.send_command({"type": "set_speaking", "speaking": True})
 
     async def speak_end(self) -> None:
-        await self.send_command({
-            "type": "set_speaking",
-            "speaking": False
-        })
+        await self.send_command({"type": "set_speaking", "speaking": False})
 
     async def load_model_from_path(self, path: str) -> None:
         filename = Path(path).name
-        await self.send_command({
-            "type": "set_model",
-            "model": filename
-        })
+        await self.send_command({"type": "set_model", "model": filename})
 
     async def load_model_from_base64(self, base64_data: str, name: str) -> None:
         pass
