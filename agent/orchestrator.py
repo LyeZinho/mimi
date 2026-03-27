@@ -20,6 +20,7 @@ from agent.brains import (
     InputBrain, ReasoningBrain, PlanningBrain, ExecutionBrain,
     SentimentBrain, AvatarBrain, OutputBrain
 )
+from agent.output.tts_provider import TTSProvider
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,8 @@ class AgentOrchestrator:
     
     def __init__(self,
                  user_id: str = "user_1",
-                 session_id: str = None):
+                 session_id: Optional[str] = None,
+                 tts_provider: Optional[TTSProvider] = None):
         self.user_id = user_id
         self.session_id = session_id or f"session_{int(time.time())}"
         
@@ -37,15 +39,43 @@ class AgentOrchestrator:
         self.event_bus = get_event_bus()
         self.shared_state = get_shared_state()
         
-        # 7 Brains
+        # Store TTS provider for dependency injection into OutputBrain
+        self.tts_provider = tts_provider
+        
+        # === 3-BRAIN PIPELINE (Week 1-3A) ===
+        # Initialization order: Input → Reasoning → Output
+        # This ensures event chain flows correctly through the pipeline
+        self.input_brain = InputBrain("input_brain", self.event_bus, self.shared_state)
+        self.reasoning_brain = ReasoningBrain(brain_id="reasoning_brain", event_bus=self.event_bus, shared_state=self.shared_state)
+        
+        # OutputBrain requires TTS provider via dependency injection
+        if self.tts_provider is None:
+            # Default: try to load PiperProvider if available
+            try:
+                from agent.output.piper_provider import PiperProvider
+                from agent.output.config import PiperConfig
+                config = PiperConfig(provider="piper", model="pt_PT")
+                self.tts_provider = PiperProvider(config)
+            except Exception as e:
+                logger.warning(f"Could not initialize default TTS provider: {e}")
+        
+        # OutputBrain initialized with TTS provider (may be None if initialization failed)
+        self.output_brain = OutputBrain(
+            brain_id="output_brain",
+            event_bus=self.event_bus,
+            shared_state=self.shared_state,
+            tts_provider=self.tts_provider
+        )
+        
+        # 7 Brains (full system)
         self.brains: List[Brain] = [
-            InputBrain("input_brain", self.event_bus, self.shared_state),
-            ReasoningBrain(brain_id="reasoning_brain", event_bus=self.event_bus, shared_state=self.shared_state),
+            self.input_brain,
+            self.reasoning_brain,
             PlanningBrain("planning_brain", self.event_bus, self.shared_state),
             ExecutionBrain("execution_brain", self.event_bus, self.shared_state),
             SentimentBrain("sentiment_brain", self.event_bus, self.shared_state),
             AvatarBrain("avatar_brain", self.event_bus, self.shared_state),
-            OutputBrain("output_brain", self.event_bus, self.shared_state),
+            self.output_brain,
         ]
         
         self._running = False

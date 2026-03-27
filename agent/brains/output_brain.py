@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class OutputBrain(Brain):
     """Output Brain: TTS, áudio streaming."""
     
-    def __init__(self, brain_id: str, event_bus, shared_state, tts_provider: TTSProvider):
+    def __init__(self, brain_id: str, event_bus, shared_state, tts_provider: Optional[TTSProvider]):
         super().__init__(brain_id, event_bus, shared_state)
         self.tts_provider = tts_provider
         self.synthesis_latencies = []

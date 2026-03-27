@@ -55,7 +55,7 @@ class ReasoningBrain(Brain):
         start_time = time.time()
         
         try:
-            state = await get_shared_state()
+            state = get_shared_state()
             context_snapshot = await state.get_context_snapshot()
             
             # TODO: invocar LLM com transcript + contexto
@@ -66,6 +66,13 @@ class ReasoningBrain(Brain):
                 "intent": intent,
                 "transcript": transcript,
                 "confidence": 0.92,
+            })
+            
+            # Emit RESPONSE_READY with the generated response text
+            response_text = intent.get("response", f"Echo: {transcript}")
+            await self.publish_event(EventType.RESPONSE_READY, {
+                "response": response_text,
+                "intent": intent,
             })
             
             latency = (time.time() - start_time) * 1000
