@@ -76,7 +76,7 @@ class AvatarBrain(Brain):
                     "details": "Avatar interface not attached",
                 }
 
-            if not hasattr(self, "bus") or self.bus is None:
+            if not hasattr(self, "event_bus") or self.event_bus is None:
                 return {
                     "name": "AvatarBrain",
                     "status": "failed",

@@ -193,7 +193,7 @@ class InputBrain(Brain):
                     "details": "Buffer manager not initialized",
                 }
 
-            if not hasattr(self, "bus") or self.bus is None:
+            if not hasattr(self, "event_bus") or self.event_bus is None:
                 return {
                     "name": "InputBrain",
                     "status": "failed",

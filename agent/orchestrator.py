@@ -90,14 +90,20 @@ class AgentOrchestrator:
         # ML Pose Playback Controller
         self.pose_controller = PosePlaybackController(self.event_bus, self.shared_state)
 
+        # Remaining brains (exposed as attributes for health check and API access)
+        self.planning_brain = PlanningBrain("planning_brain", self.event_bus, self.shared_state)
+        self.execution_brain = ExecutionBrain("execution_brain", self.event_bus, self.shared_state)
+        self.sentiment_brain = SentimentBrain("sentiment_brain", self.event_bus, self.shared_state)
+        self.avatar_brain = AvatarBrain("avatar_brain", self.event_bus, self.shared_state)
+
         # 7 Brains (full system)
         self.brains: list[Brain] = [
             self.input_brain,
             self.reasoning_brain,
-            PlanningBrain("planning_brain", self.event_bus, self.shared_state),
-            ExecutionBrain("execution_brain", self.event_bus, self.shared_state),
-            SentimentBrain("sentiment_brain", self.event_bus, self.shared_state),
-            AvatarBrain("avatar_brain", self.event_bus, self.shared_state),
+            self.planning_brain,
+            self.execution_brain,
+            self.sentiment_brain,
+            self.avatar_brain,
             self.output_brain,
         ]
 

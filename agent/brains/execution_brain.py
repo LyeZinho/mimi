@@ -10,8 +10,8 @@ Responsável por:
 """
 
 import asyncio
-import time
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from agent.core.messaging import Brain, EventType
@@ -82,7 +82,7 @@ class ExecutionBrain(Brain):
     async def health_check(self) -> dict:
         """Verify ExecutionBrain is operational."""
         try:
-            if not hasattr(self, "bus") or self.bus is None:
+            if not hasattr(self, "event_bus") or self.event_bus is None:
                 return {
                     "name": "ExecutionBrain",
                     "status": "failed",

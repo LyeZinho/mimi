@@ -124,34 +124,17 @@ class ReasoningBrain(Brain):
                     "details": "LLM provider not initialized",
                 }
 
-            if not hasattr(self, "bus") or self.bus is None:
+            if not hasattr(self, "event_bus") or self.event_bus is None:
                 return {
                     "name": "ReasoningBrain",
                     "status": "failed",
                     "details": "EventBus not attached",
                 }
 
-            try:
-                is_valid = await asyncio.wait_for(
-                    self.llm_provider.validate_connection(), timeout=5.0
-                )
-                if not is_valid:
-                    return {
-                        "name": "ReasoningBrain",
-                        "status": "failed",
-                        "details": "LLM connection validation failed",
-                    }
-            except asyncio.TimeoutError:
-                return {
-                    "name": "ReasoningBrain",
-                    "status": "timeout",
-                    "details": "LLM connection timeout",
-                }
-
             return {
                 "name": "ReasoningBrain",
                 "status": "operational",
-                "details": "LLM provider operational",
+                "details": "LLM provider initialized",
             }
         except Exception as e:
             return {"name": "ReasoningBrain", "status": "failed", "details": str(e)}

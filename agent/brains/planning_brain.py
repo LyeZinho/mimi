@@ -77,7 +77,7 @@ class PlanningBrain(Brain):
     async def health_check(self) -> dict:
         """Verify PlanningBrain is operational."""
         try:
-            if not hasattr(self, "bus") or self.bus is None:
+            if not hasattr(self, "event_bus") or self.event_bus is None:
                 return {
                     "name": "PlanningBrain",
                     "status": "failed",

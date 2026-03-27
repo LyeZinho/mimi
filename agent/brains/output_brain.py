@@ -9,9 +9,8 @@ Responsável por:
 """
 
 import asyncio
-import time
 import logging
-from typing import Optional
+import time
 
 from agent.core.messaging import Brain, EventType
 from agent.output.tts_provider import TTSProvider
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 class OutputBrain(Brain):
     """Output Brain: TTS, áudio streaming."""
     
-    def __init__(self, brain_id: str, event_bus, shared_state, tts_provider: Optional[TTSProvider]):
+    def __init__(self, brain_id: str, event_bus, shared_state, tts_provider: TTSProvider | None):
         super().__init__(brain_id, event_bus, shared_state)
         self.tts_provider = tts_provider
         self.synthesis_latencies = []
@@ -104,7 +103,7 @@ class OutputBrain(Brain):
     async def health_check(self) -> dict:
         """Verify OutputBrain is operational."""
         try:
-            if not hasattr(self, "bus") or self.bus is None:
+            if not hasattr(self, "event_bus") or self.event_bus is None:
                 return {
                     "name": "OutputBrain",
                     "status": "failed",

@@ -126,10 +126,9 @@ async def main() -> None:
 
         # Initialize and start Orchestrator (all 7 brains)
         await orchestrator.initialize()
-        await orchestrator.start()
-        logger.info("Orchestrator started with all brains")
+        logger.info("Orchestrator initialized with all brains")
 
-        # Run health checks on all brains
+        # Run health checks on all brains (before starting background loops)
         logger.info("Running brain health checks...")
         health_check = BrainHealthCheck(orchestrator.event_bus)
 
@@ -143,12 +142,22 @@ async def main() -> None:
             "OutputBrain": orchestrator.output_brain,
         }
 
-        all_operational = await health_check.run(brains, timeout=10)
+        try:
+            all_operational = await asyncio.wait_for(
+                health_check.run(brains, timeout=5), timeout=30
+            )
+        except asyncio.TimeoutError:
+            logger.warning("⚠️ Health check timed out - starting anyway")
+            all_operational = False
 
         if all_operational:
             logger.info("✅ All brains operational - Agent ready")
         else:
             logger.warning("⚠️ Some brains failed health check - starting with warnings")
+
+        # Now start orchestrator (begins background processing loops)
+        await orchestrator.start()
+        logger.info("Orchestrator started with all brains")
 
         # Start Bridge
         await bridge.start()
