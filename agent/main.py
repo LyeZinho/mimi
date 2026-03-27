@@ -1,4 +1,4 @@
-"""Entry point do agente Mimi."""
+"""Entry point do agente Mimi — Orchestrator mode."""
 
 from __future__ import annotations
 
@@ -7,15 +7,13 @@ import logging
 import sys
 
 from agent.avatar.interface import DummyAvatar, WebAvatar
-from agent.core.agent import AgentCore
-from agent.core.memory import Memory
-from agent.core.state import AgentState
-from agent.llm.client import LLMClient
-from agent.output.actions import ActionRouter
-from agent.output.tts import DummyTTS
-from agent.tools.registry import ToolRegistry
-
-from agent.config import AVATAR_TYPE, DB_PATH, LLM_MODEL, WEBSOCKET_HOST, WEBSOCKET_PORT
+from agent.bridge import OrchestratorBridge
+from agent.orchestrator import AgentOrchestrator
+from agent.llm.config import OllamaConfig
+from agent.llm.ollama_provider import OllamaProvider
+from agent.config import (
+    AVATAR_TYPE, LLM_MODEL, WEBSOCKET_HOST, WEBSOCKET_PORT,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,63 +21,127 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+import os
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "https://api.ollama.ai")
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
+
 
 def create_avatar() -> DummyAvatar | WebAvatar:
-    """Cria instância do avatar baseado na configuração."""
+    """Create avatar instance based on config."""
     if AVATAR_TYPE == "web":
         return WebAvatar(host=WEBSOCKET_HOST, port=WEBSOCKET_PORT)
     else:
         return DummyAvatar()
 
 
+def create_tts_provider():
+    """Create TTS provider with graceful fallback."""
+    try:
+        from agent.output.piper_provider import PiperProvider
+        from agent.output.config import PiperConfig
+        config = PiperConfig(provider="piper", model="pt_PT")
+        provider = PiperProvider(config)
+        logger.info("PiperTTS provider initialized")
+        return provider
+    except Exception as e:
+        logger.warning(f"PiperTTS not available ({e}), OutputBrain will have no TTS")
+        return None
+
+
+def create_llm_provider():
+    """Create Ollama LLM provider."""
+    try:
+        host = OLLAMA_HOST
+        config = OllamaConfig(
+            provider="ollama",
+            model=LLM_MODEL,
+            host=host,
+            temperature=0.7,
+        )
+        provider = OllamaProvider(config)
+        logger.info(f"OllamaProvider initialized (model={LLM_MODEL}, host={host})")
+        return provider
+    except Exception as e:
+        logger.warning(f"OllamaProvider not available ({e}), ReasoningBrain will use fallback")
+        return None
+
+
 async def main() -> None:
-    """Inicializa e executa o agente como daemon WebSocket."""
+    """Initialize and run the Mimi agent with full Orchestrator."""
     print("=" * 50)
-    print("  Mimi – Agente de IA Interativo Multimodal (Daemon Mode)")
+    print("  Mimi – Agente de IA (Orchestrator Mode)")
     print("=" * 50)
-    logger.info("Iniciando agente em modo daemon...")
+    logger.info("Starting agent in Orchestrator mode...")
 
-    # Componentes
-    # NOTE: Disabling DB persistence due to SQLite readonly issues in containerized env
-    # Use in-memory memory only (short_term) for now
-    memory = Memory(short_term_limit=30, db_path=None)
-    state = AgentState(mood="neutral")
-    llm = LLMClient(model=LLM_MODEL)
-    tts = DummyTTS()
+    # Components
     avatar = create_avatar()
-    router = ActionRouter(tts=tts, avatar=avatar)
-    registry = ToolRegistry()
+    tts_provider = create_tts_provider()
+    llm_provider = create_llm_provider()
 
-    agent = AgentCore(
-        memory=memory,
-        state=state,
-        llm=llm,
-        router=router,
-        registry=registry,
-        avatar=avatar
+    # Create Orchestrator with all dependencies
+    orchestrator = AgentOrchestrator(
+        tts_provider=tts_provider,
+        llm_provider=llm_provider,
     )
 
+    # Create Bridge (WS ↔ EventBus)
+    bridge = OrchestratorBridge(
+        avatar=avatar,
+        event_bus=orchestrator.event_bus,
+    )
+
+    # Set Bridge as message handler on WebAvatar
     if isinstance(avatar, WebAvatar):
-        avatar.set_agent(agent)
-        logger.info("Agent configurado para WebAvatar")
+        async def on_ws_message(data: dict):
+            """Bridge callback for incoming WebSocket messages."""
+            msg_type = data.get("type")
+            if msg_type in ("agent_input", "chat"):
+                text = data.get("text") or data.get("message", "")
+                if text:
+                    await bridge.handle_text_input(text, source="web")
+            elif msg_type == "state":
+                pass  # State updates handled by WebAvatar natively
+            else:
+                logger.debug(f"Unhandled WS message type in bridge: {msg_type}")
+        
+        avatar.set_message_callback(on_ws_message)
 
     try:
-        # Conecta avatar (inicia listen_loop)
+        # Connect WebSocket
         await avatar.connect()
-        logger.info("Avatar conectado. Esperando mensagens...")
+        logger.info("Avatar connected")
 
-        # Loop infinito para manter o daemon ativo
+        # Load default model
+        if isinstance(avatar, WebAvatar):
+            await avatar.load_model_from_path("vroid_model/Mimi.vrm")
+            logger.info("Default model Mimi.vrm loaded")
+
+        # Initialize and start Orchestrator (all 7 brains)
+        await orchestrator.initialize()
+        await orchestrator.start()
+        logger.info("Orchestrator started with all brains")
+
+        # Start Bridge
+        await bridge.start()
+        logger.info("Bridge connected: WebSocket ↔ EventBus")
+
+        logger.info("System ready. Waiting for input...")
+
+        # Keep alive
         while True:
             await asyncio.sleep(1)
+
     except KeyboardInterrupt:
-        logger.info("Interrupção recebida")
+        logger.info("Interrupt received")
     except Exception as e:
-        logger.error(f"Erro no daemon: {e}")
+        logger.error(f"Daemon error: {e}", exc_info=True)
     finally:
-        # Desconecta avatar
+        await bridge.stop()
+        await orchestrator.stop()
         await avatar.disconnect()
-        await agent.shutdown()
-        logger.info("Daemon encerrado")
+        if llm_provider and hasattr(llm_provider, 'close'):
+            await llm_provider.close()
+        logger.info("Daemon stopped")
 
 
 if __name__ == "__main__":
