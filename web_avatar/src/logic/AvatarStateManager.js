@@ -2,8 +2,9 @@
  * AvatarStateManager - Manages and broadcasts avatar state
  */
 export class AvatarStateManager {
-    constructor(websocketClient) {
+    constructor(websocketClient, posePlayer = null) {
         this.ws = websocketClient;
+        this.posePlayer = posePlayer;
         this.state = {
             model: null,
             expression: 'neutral',
@@ -19,6 +20,60 @@ export class AvatarStateManager {
 
         this.listeners = new Set();
         this.isController = true; // Main page is controller, OBS is viewer
+        
+        if (this.ws) {
+            this.setupPosePlaybackListener();
+        }
+    }
+
+    /**
+     * Setup listener for POSE_PLAYBACK events from orchestrator
+     */
+    setupPosePlaybackListener() {
+        if (!this.ws || !this.ws.onMessage) {
+            return;
+        }
+        
+        const originalCallback = this.ws.onMessageCallback;
+        
+        this.ws.onMessage((message) => {
+            if (message.type === 'POSE_PLAYBACK' && this.posePlayer) {
+                this.handlePosePlayback(message);
+            }
+            
+            if (originalCallback) {
+                originalCallback(message);
+            }
+        });
+    }
+
+    /**
+     * Handle pose playback event from WebSocket
+     */
+    async handlePosePlayback(message) {
+        if (!this.posePlayer) return;
+        
+        const { frameId, fadeDuration = 0.5, poseData } = message;
+        
+        try {
+            await this.posePlayer.playFrame(frameId, fadeDuration);
+            console.log(`Played pose frame: ${frameId}`);
+        } catch (error) {
+            console.error('Error playing pose frame:', error);
+        }
+    }
+
+    /**
+     * Public method to play pose via frame ID and fade duration
+     */
+    async playPose(frameId, fadeDuration = 0.5) {
+        if (!this.posePlayer) {
+            console.warn('PosePlayer not initialized');
+            return false;
+        }
+        
+        const result = await this.posePlayer.playFrame(frameId, fadeDuration);
+        return result.success;
     }
 
     /**
