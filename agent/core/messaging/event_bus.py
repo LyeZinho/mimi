@@ -50,6 +50,8 @@ class EventType(str, Enum):
     AVATAR_STATE_CHANGED = "avatar_state_changed"
     
     # Output Brain
+    RESPONSE_READY = "response_ready"
+    AUDIO_COMPLETE = "audio_complete"
     TTS_STARTED = "tts_started"
     TTS_CHUNK = "tts_chunk"
     TTS_COMPLETE = "tts_complete"

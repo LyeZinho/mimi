@@ -11,8 +11,10 @@ Responsável por:
 import asyncio
 import time
 import logging
+from typing import Optional
 
 from agent.core.messaging import Brain, EventType
+from agent.output.tts_provider import TTSProvider
 
 logger = logging.getLogger(__name__)
 
@@ -20,21 +22,25 @@ logger = logging.getLogger(__name__)
 class OutputBrain(Brain):
     """Output Brain: TTS, áudio streaming."""
     
+    def __init__(self, brain_id: str, event_bus, shared_state, tts_provider: TTSProvider):
+        super().__init__(brain_id, event_bus, shared_state)
+        self.tts_provider = tts_provider
+        self.synthesis_latencies = []
+    
     async def initialize(self) -> None:
         await super().initialize()
-        
-        bus = self.event_bus
-        bus.subscribe(EventType.INTENT_DETECTED)(self._on_intent)
+        self.event_bus.subscribe(EventType.RESPONSE_READY)(self._on_response_ready)
+        logger.info(f"[{self.brain_id}] TTS initialized and subscribed to RESPONSE_READY")
     
     async def process(self) -> None:
         await asyncio.sleep(0.1)
     
-    async def _on_intent(self, event) -> None:
-        """Quando intenção chega, converte response para áudio."""
-        intent = event.payload.get("intent", {})
-        response_text = intent.get("response", "")
+    async def _on_response_ready(self, event) -> None:
+        """Quando resposta está pronta, converte para áudio."""
+        response_text = event.payload.get("response", "")
         
-        if not response_text:
+        if not response_text or not response_text.strip():
+            logger.warning("Empty response text received")
             return
         
         start_time = time.time()
@@ -43,32 +49,54 @@ class OutputBrain(Brain):
             await self._synthesize_and_stream(response_text)
             
             latency = (time.time() - start_time) * 1000
+            self.synthesis_latencies.append(latency)
             await self.record_event(success=True, latency_ms=latency)
         
         except Exception as e:
-            logger.error(f"Error in _on_intent: {e}", exc_info=True)
+            logger.error(f"Error in _on_response_ready: {e}", exc_info=True)
             await self.record_event(success=False, latency_ms=0)
     
     async def _synthesize_and_stream(self, text: str) -> None:
-        """Síntese de voz com streaming (não espera completo)."""
+        """Síntese de voz com streaming."""
         await self.publish_event(EventType.TTS_STARTED, {
             "text": text,
             "timestamp": time.time(),
         })
         
-        chunk_duration_ms = 100
-        estimated_chunks = max(1, len(text) // 10)
+        start_synthesis = time.time()
         
-        for i in range(estimated_chunks):
-            await self.publish_event(EventType.TTS_CHUNK, {
-                "chunk_index": i,
-                "duration_ms": chunk_duration_ms,
-                "is_final": i == estimated_chunks - 1,
+        try:
+            audio_chunks = []
+            chunk_index = 0
+            
+            async for chunk in await self.tts_provider.synthesize(text, stream=True):
+                audio_chunks.append(chunk)
+                
+                await self.publish_event(EventType.AUDIO_CHUNK, {
+                    "chunk_index": chunk_index,
+                    "data": chunk,
+                    "chunk_size": len(chunk),
+                })
+                
+                chunk_index += 1
+            
+            synthesis_duration_ms = (time.time() - start_synthesis) * 1000
+            full_audio = b"".join(audio_chunks)
+            
+            await self.publish_event(EventType.AUDIO_COMPLETE, {
+                "audio": full_audio,
+                "full_audio": full_audio,
+                "duration_ms": synthesis_duration_ms,
+                "chunk_count": chunk_index,
             })
             
-            await asyncio.sleep(chunk_duration_ms / 1000.0)
+            logger.info(f"Synthesized {chunk_index} chunks in {synthesis_duration_ms:.1f}ms")
         
-        await self.publish_event(EventType.TTS_COMPLETE, {
-            "text": text,
-            "total_duration_ms": chunk_duration_ms * estimated_chunks,
-        })
+        except Exception as e:
+            logger.error(f"TTS error: {e}", exc_info=True)
+            await self.publish_event(EventType.AUDIO_COMPLETE, {
+                "audio": b"",
+                "full_audio": b"",
+                "duration_ms": 0,
+                "error": str(e),
+            })
