@@ -102,9 +102,13 @@ class WebAvatar(AvatarInterface):
         self.connected = False
         self.agent = None
         self.listen_task = None
+        self.message_callback = None
 
     def set_agent(self, agent: Any) -> None:
         self.agent = agent
+
+    def set_message_callback(self, callback: Any) -> None:
+        self.message_callback = callback
 
     async def connect(self) -> None:
         """Conecta ao servidor WebSocket (Backend)."""
@@ -139,6 +143,11 @@ class WebAvatar(AvatarInterface):
                     data = json.loads(message)
                     msg_type = data.get("type")
                     logger.info(f"[LISTEN] Message received: type={msg_type}")
+
+                    # If bridge callback is set, delegate to it
+                    if self.message_callback:
+                        await self.message_callback(data)
+                        continue
 
                     if msg_type == "set_model":
                         model_name = data.get("model")
