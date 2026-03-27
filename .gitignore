@@ -33,6 +33,7 @@ Thumbs.db
 
 # ffmpeg
 ffmpeg/
+utils/ffmpeg-8.1-essentials_build-win/
 
 # Environment
 .env
@@ -41,3 +42,6 @@ ffmpeg/
 
 # Git worktrees
 .worktrees/
+
+# Node.js
+node_modules/
