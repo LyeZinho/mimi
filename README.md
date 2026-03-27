@@ -229,7 +229,7 @@ Crie `.env` com as seguintes variáveis:
 
 ```
 OLLAMA_HOST=https://api.ollama.ai
-OLLAMA_API_KEY=7d5fefd71866442f848242162671602e.BscZ3cc5eQc6cx9d6-yhXhiC
+OLLAMA_API_KEY=<your_ollama_api_key_here>
 LLM_MODEL=phi3:mini
 AVATAR_TYPE=web
 WEBSOCKET_HOST=localhost
