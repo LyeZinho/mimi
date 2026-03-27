@@ -117,6 +117,99 @@ O projeto utiliza solução 100% Web (Three.js + VRM).
 
 ---
 
+## 🎥 Mirror Stream & LLM Control
+
+Mimi inclui um sistema completo de **WebRTC Mirror Stream** com **controle multimodal via LLM**, permitindo streaming do avatar 3D para OBS/Twitch e controle em tempo real de emoções, gestos e estado do agente.
+
+### Recursos Principais
+
+- **🎬 Mirror Stream**: Captura de canvas 3D a 10 FPS (100ms throttle) via WebSocket
+- **🤖 Controle LLM**: Emoções, gestos e animações controlados pelo agente Python
+- **🔍 DebugPanel**: Monitoramento em tempo real do estado multimodal do avatar
+- **📺 OBS Ready**: Endpoint dedicado `/mirror.html` para integração com software de broadcast
+- **🔄 Reconexão Automática**: Sistema resiliente com backoff exponencial
+
+### Quick Start: Mirror Stream
+
+**1. Inicie o sistema completo:**
+
+```bash
+# Terminal 1: WebSocket Server
+cd web_avatar && node server.js
+
+# Terminal 2: Agent Python
+source .venv/bin/activate && python agent/main.py
+
+# Terminal 3: React Frontend
+cd web_avatar && npm run dev
+```
+
+**2. Configure OBS Studio:**
+
+1. Adicione fonte **Browser**
+2. URL: `http://localhost:5173/mirror.html`
+3. Resolução: 1920x1080
+4. O status "Live" aparecerá em verde quando conectado
+
+**3. Teste o sistema:**
+
+- Digite no chat: "olá Mimi"
+- Observe o **DebugPanel** (sidebar direita) mostrando emoções em tempo real
+- Avatar responderá com emoção e gesto apropriados
+
+### Emoções do Agente
+
+O agente LLM controla o avatar via mensagens WebSocket `avatar_control`:
+
+| Emoção | Indicador | Uso |
+|--------|-----------|-----|
+| 🟢 **Happy** | Verde | Resposta positiva |
+| 🔵 **Sad** | Azul | Resultado negativo |
+| 🔴 **Angry** | Vermelho | Frustração |
+| 🟠 **Surprised** | Laranja | Input inesperado |
+| 🟣 **Confused** | Roxo | Pedido unclear |
+| ⚪ **Neutral** | Cinza | Estado idle |
+| ⚫ **Thinking** | Cinza escuro | Processando |
+
+### DebugPanel
+
+O componente **DebugPanel** (sidebar direita) exibe:
+
+- **Emotion**: Estado emocional atual (color-coded)
+- **Action/Gesture**: Gesto/animação em execução
+- **Speaking**: Indicador 🔊/🔇 de fala ativa
+- **Animation**: Nome da animação VRM atual
+- **Mirror FPS**: Taxa de captura do stream (10 FPS ideal)
+- **Frames**: Contador total de frames transmitidos
+- **Last Update**: Timestamp da última atualização
+
+### Performance
+
+| Métrica | Valor | Notas |
+|---------|-------|-------|
+| Frame Rate | 10 FPS | Throttle de 100ms |
+| Frame Size | ~80-150 KB | Compressão PNG |
+| Bandwidth | ~0.8-1.5 Mbps | A 10 FPS |
+| Latência | 150-300ms | Rede + decode |
+| Max Frame Size | 2 MB | Frames maiores são ignorados |
+
+### Documentação Completa
+
+Para setup detalhado, troubleshooting e API reference:
+
+📖 **[docs/MIRROR_AND_CONTROL.md](docs/MIRROR_AND_CONTROL.md)**
+
+Inclui:
+- Arquitetura do sistema e data flow
+- Setup passo a passo (Docker incluído)
+- Comandos de controle LLM (emotions, gestures, speaking)
+- Integração avançada com OBS Studio
+- Troubleshooting (conexão, FPS, frame size)
+- Performance tuning (ajuste de FPS, compressão, otimizações)
+- API reference completa (WebSocket messages, métodos)
+
+---
+
 ## 🛠️ Configuração de Ambiente
 
 Crie `.env` com as seguintes variáveis:
