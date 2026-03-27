@@ -14,6 +14,10 @@ sounddevice>=0.4
 webrtcvad>=2.0
 faster-whisper>=0.9
 
+# Visão/Pose (obrigatório para AvatarBrain)
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+
 # TTS (opcional)
 # piper-tts>=1.0
 # coqui-tts>=0.20
