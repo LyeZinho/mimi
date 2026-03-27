@@ -49,6 +49,9 @@ class EventType(str, Enum):
     GESTURE_QUEUED = "gesture_queued"
     AVATAR_STATE_CHANGED = "avatar_state_changed"
     
+    # ML Pose Playback
+    POSE_PLAYBACK = "pose_playback"
+    
     # Output Brain
     RESPONSE_READY = "response_ready"
     AUDIO_COMPLETE = "audio_complete"

@@ -21,6 +21,7 @@ from agent.brains import (
     SentimentBrain, AvatarBrain, OutputBrain
 )
 from agent.output.tts_provider import TTSProvider
+from agent.output.pose_playback_controller import PosePlaybackController
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,9 @@ class AgentOrchestrator:
             shared_state=self.shared_state,
             tts_provider=self.tts_provider
         )
+        
+        # ML Pose Playback Controller
+        self.pose_controller = PosePlaybackController(self.event_bus, self.shared_state)
         
         # 7 Brains (full system)
         self.brains: List[Brain] = [
@@ -147,6 +151,41 @@ class AgentOrchestrator:
             )
     
     # ===== PUBLIC API =====
+    
+    async def load_pose_sequence(self, pose_name: str, output_dir: str) -> bool:
+        """Load a pose sequence for playback.
+        
+        Args:
+            pose_name: Name of the pose sequence (e.g., 'sequence')
+            output_dir: Directory containing pose files
+            
+        Returns:
+            bool: True if sequence loaded successfully
+        """
+        return self.pose_controller.load_pose_sequence(output_dir, pose_name)
+    
+    async def play_pose(self, frame_id: int, fade_duration: float = 0.0) -> Dict[str, Any]:
+        """Play a pose frame to the frontend avatar.
+        
+        Args:
+            frame_id: Frame ID to play
+            fade_duration: Transition duration in seconds
+            
+        Returns:
+            Dict with success status and metadata
+        """
+        return self.pose_controller.play_pose(frame_id, fade_duration)
+    
+    async def start_pose_sequence(self, sequence_config: Dict[str, Any]) -> bool:
+        """Start playback of a pose sequence.
+        
+        Args:
+            sequence_config: Configuration with start_frame, end_frame, loop, speed
+            
+        Returns:
+            bool: True if sequence playback started successfully
+        """
+        return self.pose_controller.start_sequence_playback(sequence_config)
     
     async def process_text_input(self, text: str) -> None:
         """API: processa input de texto (simula Input Brain)."""
