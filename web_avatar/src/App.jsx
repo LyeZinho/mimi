@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import AvatarCanvas from './components/AvatarCanvas';
 import AnimationControls from './components/AnimationControls';
@@ -6,6 +5,7 @@ import ExpressionControls from './components/ExpressionControls';
 import WebSocketStatus from './components/WebSocketStatus';
 import ModelUpload from './components/ModelUpload';
 import ChatInterface from './components/ChatInterface';
+import DebugPanel from './components/DebugPanel';
 import { WebSocketClient } from './logic/WebSocketClient';
 import { AvatarStateManager } from './logic/AvatarStateManager';
 import GUI from 'lil-gui';
@@ -17,6 +17,7 @@ export default function App() {
   const [isObsMode, setIsObsMode] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [fps, setFps] = useState(0);
+  const [frameStats, setFrameStats] = useState({ frameCount: 0, fps: 0, lastFrameTime: 0 });
 
   // Logic instances
   const wsClientRef = useRef(null);
@@ -206,6 +207,9 @@ export default function App() {
                 stateManagerRef.current.setCamera(cam.position, cam.target);
               }
             }}
+            onFrameCaptureUpdate={(stats) => {
+              setFrameStats(stats);
+            }}
             wsConnection={wsClientRef.current?.ws}
             wsClient={wsClientRef.current}
           />
@@ -217,6 +221,8 @@ export default function App() {
             onAnimationChange={handleAnimationChange}
             onPoseChange={handlePoseChange}
           />
+          <div className="divider"></div>
+          <DebugPanel wsClient={wsClientRef.current} frameStats={frameStats} />
           <div className="divider"></div>
           <ExpressionControls onExpressionChange={handleExpressionChange} />
 

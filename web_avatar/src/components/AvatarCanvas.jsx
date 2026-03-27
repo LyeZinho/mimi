@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { AvatarViewer } from '../logic/AvatarViewer';
 
-export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, onModelLoaded, wsConnection = null, wsClient = null }) {
+export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, onModelLoaded, wsConnection = null, wsClient = null, onFrameCaptureUpdate = null }) {
   const canvasRef = useRef(null);
   const viewerRef = useRef(null);
   const lastModelUrlRef = useRef(null);
@@ -53,8 +53,16 @@ export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, 
 
     window.addEventListener('resize', handleResize);
 
+    const statsInterval = setInterval(() => {
+      if (viewerRef.current && onFrameCaptureUpdate) {
+        const stats = viewerRef.current.getFrameStats();
+        onFrameCaptureUpdate(stats);
+      }
+    }, 1000);
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      clearInterval(statsInterval);
       viewer.stopFrameCapture();
       viewer.dispose();
       viewerRef.current = null;

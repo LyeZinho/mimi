@@ -326,6 +326,14 @@ export class AvatarViewer {
         }
     }
 
+    getFrameStats() {
+        return {
+            frameCount: this.frameCapture.frameCount,
+            fps: this.frameCapture.frameCount > 0 ? 10 : 0,
+            lastFrameTime: this.frameCapture.lastCaptureTime
+        };
+    }
+
     dispose() {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
