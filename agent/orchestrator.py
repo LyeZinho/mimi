@@ -21,6 +21,7 @@ from agent.brains import (
     SentimentBrain, AvatarBrain, OutputBrain
 )
 from agent.output.tts_provider import TTSProvider
+from agent.llm.provider import LLMProvider
 from agent.output.pose_playback_controller import PosePlaybackController
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,8 @@ class AgentOrchestrator:
     def __init__(self,
                  user_id: str = "user_1",
                  session_id: Optional[str] = None,
-                 tts_provider: Optional[TTSProvider] = None):
+                 tts_provider: Optional[TTSProvider] = None,
+                 llm_provider: Optional[LLMProvider] = None):
         self.user_id = user_id
         self.session_id = session_id or f"session_{int(time.time())}"
         
@@ -40,14 +42,20 @@ class AgentOrchestrator:
         self.event_bus = get_event_bus()
         self.shared_state = get_shared_state()
         
-        # Store TTS provider for dependency injection into OutputBrain
+        # Store TTS and LLM providers for dependency injection
         self.tts_provider = tts_provider
+        self.llm_provider = llm_provider
         
         # === 3-BRAIN PIPELINE (Week 1-3A) ===
         # Initialization order: Input → Reasoning → Output
         # This ensures event chain flows correctly through the pipeline
         self.input_brain = InputBrain("input_brain", self.event_bus, self.shared_state)
-        self.reasoning_brain = ReasoningBrain(brain_id="reasoning_brain", event_bus=self.event_bus, shared_state=self.shared_state)
+        self.reasoning_brain = ReasoningBrain(
+            llm_provider=self.llm_provider,
+            brain_id="reasoning_brain",
+            event_bus=self.event_bus,
+            shared_state=self.shared_state
+        )
         
         # OutputBrain requires TTS provider via dependency injection
         if self.tts_provider is None:
