@@ -100,6 +100,61 @@ Both scripts show the 3 commands needed to run in separate terminals.
 
 ---
 
+## 🏥 Brain Health Check
+
+Toda vez que o agente inicia, testa automaticamente cada um dos 7 cérebros para verificar se estão operacionais:
+
+```
+Running brain health checks...
+✓ InputBrain            operational - All components initialized
+✓ ReasoningBrain        operational - LLM provider operational
+✓ PlanningBrain         operational - All components initialized
+✓ ExecutionBrain        operational - All components initialized
+✓ SentimentBrain        operational - All components initialized
+✓ AvatarBrain           operational - All components initialized
+✓ OutputBrain           operational - All components initialized
+✅ All brains operational - Agent ready
+```
+
+### O que é Verificado
+
+- **InputBrain**: Motor VAD, STT, buffer manager, EventBus
+- **ReasoningBrain**: Provedor LLM, validação de conexão
+- **PlanningBrain**: Inicialização do planejador
+- **ExecutionBrain**: Inicialização do executor
+- **SentimentBrain**: Inicialização do analisador de sentimento
+- **AvatarBrain**: Interface do avatar
+- **OutputBrain**: Manipulador de output (TTS, ações)
+
+### Comportamento com Timeout
+
+Cada cérebro tem **10 segundos** para completar seu health check. Se houver timeout ou falha:
+- **Status**: ⚠️ (timeout) ou ✗ (falha)
+- **Impacto**: Agente continua mas exibe aviso
+- **Ação**: Verificar logs para detalhes de erro específicos
+
+### Visualizando Health Check Logs
+
+**Inicialização local:**
+```bash
+python agent/main.py
+```
+Buscar por `health` nos logs do console
+
+**Docker:**
+```bash
+docker-compose up
+```
+Health check roda automaticamente durante startup
+Resultados mostrados nos logs do container
+
+**Arquivo de log do agent:**
+```bash
+tail -f /tmp/agent_output.log | grep -E "(✓|✗|⚠)"
+```
+
+---
+
 ## 🎭 Avatar 3D (Web)
 
 O projeto utiliza solução 100% Web (Three.js + VRM).
