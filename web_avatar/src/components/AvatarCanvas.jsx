@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { AvatarViewer } from '../logic/AvatarViewer';
 
-export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, onModelLoaded, wsConnection = null }) {
+export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, onModelLoaded, wsConnection = null, wsClient = null }) {
   const canvasRef = useRef(null);
   const viewerRef = useRef(null);
   const lastModelUrlRef = useRef(null);
@@ -9,7 +9,7 @@ export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, 
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const viewer = new AvatarViewer(canvasRef.current, wsConnection);
+    const viewer = new AvatarViewer(canvasRef.current, null);
     viewerRef.current = viewer;
 
     console.log('[AvatarCanvas] MONTADO');
@@ -24,8 +24,27 @@ export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, 
       }
     };
 
-    if (wsConnection) {
-      viewer.startFrameCapture(wsConnection);
+    if (wsClient) {
+      const startCapture = () => {
+        if (wsClient.ws && wsClient.ws.readyState === WebSocket.OPEN && viewerRef.current) {
+          viewerRef.current.startFrameCapture(wsClient.ws);
+          console.log('[AvatarCanvas] Frame capture started');
+        }
+      };
+
+      if (wsClient.isConnected()) {
+        startCapture();
+      } else {
+        wsClient.onStatusChange((status) => {
+          if (status === 'connected') {
+            startCapture();
+          } else if (status === 'disconnected') {
+            if (viewerRef.current) {
+              viewerRef.current.stopFrameCapture();
+            }
+          }
+        });
+      }
     }
 
     const handleResize = () => {
@@ -41,7 +60,7 @@ export default function AvatarCanvas({ modelUrl, onViewerReady, onCameraChange, 
       viewerRef.current = null;
       console.log('[AvatarCanvas] DESMONTADO');
     };
-  }, [wsConnection]);
+  }, []);
 
   useEffect(() => {
     if (modelUrl && viewerRef.current) {

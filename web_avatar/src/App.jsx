@@ -170,6 +170,7 @@ export default function App() {
           onViewerReady={handleViewerReady}
           onModelLoaded={handleModelLoadedInViewer}
           wsConnection={wsClientRef.current?.ws}
+          wsClient={wsClientRef.current}
         />
       </div>
     );
@@ -206,6 +207,7 @@ export default function App() {
               }
             }}
             wsConnection={wsClientRef.current?.ws}
+            wsClient={wsClientRef.current}
           />
         </section>
 
