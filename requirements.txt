@@ -25,6 +25,9 @@ mediapipe>=0.10.0
 # Dependências de Áudio (required by numpy/faster-whisper)
 numpy>=1.24
 
+# Serialização
+msgpack>=1.0.0
+
 
 # Desenvolvimento
 pytest>=7.0

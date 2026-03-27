@@ -30,26 +30,20 @@ echo -e "${BLUE}🤖 Starting Python Agent...${NC}"
 cd /app
 PYTHONPATH=/app python agent/main.py > /tmp/agent_output.log 2>&1 &
 AGENT_PID=$!
-sleep 3
+sleep 8
 echo -e "${GREEN}✓ Python Agent running (PID: $AGENT_PID)${NC}"
 
-# Check health check status
+# Check health check status (wait for health checks to complete)
+sleep 1
 if grep -q "✅ All brains operational" /tmp/agent_output.log 2>/dev/null; then
-    echo -e "${GREEN}✅ Health check passed${NC}"
-    # Display health check results
-    grep "✓.*operational\|⚠.*timeout\|✗.*failed" /tmp/agent_output.log | head -7
+    echo -e "${GREEN}✅ All brains operational${NC}"
+    grep "| ✓.*operational" /tmp/agent_output.log | head -7
 elif grep -q "Brain health check issues detected" /tmp/agent_output.log 2>/dev/null; then
-    echo -e "${BLUE}⚠️  Health check issues detected${NC}"
-    # Display each failed brain with details
-    grep "✗.*failed\|⚠.*timeout" /tmp/agent_output.log
+    echo -e "${BLUE}⚠️  Brain health check issues detected:${NC}"
+    grep "| ✗\|| ⚠" /tmp/agent_output.log
     echo -e "${BLUE}Starting agent anyway - some functionality may be degraded${NC}"
-elif grep -q "⚠️ Some brains failed" /tmp/agent_output.log 2>/dev/null; then
-    echo -e "${BLUE}⚠️  Health check partial - some brains failed${NC}"
-    grep "✓.*operational\|⚠.*timeout\|✗.*failed" /tmp/agent_output.log | head -7
 else
     echo -e "${BLUE}ℹ️  Health check status: checking logs...${NC}"
-    # Show first 5 lines of agent output for debugging
-    head -5 /tmp/agent_output.log 2>/dev/null || echo "No agent output available yet"
 fi
 
 # Start React Frontend
