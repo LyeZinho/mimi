@@ -9,14 +9,18 @@ duckduckgo-search>=5.0.0
 websockets>=12.0
 aiohttp>=3.9.0
 
-# Áudio/Voz (opcional, descomentar conforme necessário)
-# sounddevice>=0.4
-# webrtcvad>=2.0
-# faster-whisper>=0.9
+# Áudio/Voz (obrigatório para InputBrain)
+sounddevice>=0.4
+webrtcvad>=2.0
+faster-whisper>=0.9
 
 # TTS (opcional)
 # piper-tts>=1.0
 # coqui-tts>=0.20
+
+# Dependências de Áudio (required by numpy/faster-whisper)
+numpy>=1.24
+
 
 # Desenvolvimento
 pytest>=7.0
