@@ -33,7 +33,10 @@ OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
 def create_avatar() -> DummyAvatar | WebAvatar:
     """Create avatar instance based on config."""
     if AVATAR_TYPE == "web":
-        return WebAvatar(host=WEBSOCKET_HOST, port=WEBSOCKET_PORT)
+        # For WebSocket client connections, use localhost instead of 0.0.0.0
+        # (0.0.0.0 is only valid for server listening, not client connections)
+        client_host = "localhost" if WEBSOCKET_HOST == "0.0.0.0" else WEBSOCKET_HOST
+        return WebAvatar(host=client_host, port=WEBSOCKET_PORT)
     else:
         return DummyAvatar()
 
