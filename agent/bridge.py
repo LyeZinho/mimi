@@ -30,6 +30,7 @@ class OrchestratorBridge:
         self.event_bus.subscribe(EventType.ANIMATION_QUEUED)(self._on_animation_queued)
         self.event_bus.subscribe(EventType.GESTURE_QUEUED)(self._on_gesture_queued)
         self.event_bus.subscribe(EventType.TTS_STARTED)(self._on_tts_started)
+        self.event_bus.subscribe(EventType.AUDIO_CHUNK)(self._on_audio_chunk)
         self.event_bus.subscribe(EventType.AUDIO_COMPLETE)(self._on_audio_complete)
         self.event_bus.subscribe(EventType.EMOTION_DETECTED)(self._on_emotion_detected)
         
@@ -126,6 +127,21 @@ class OrchestratorBridge:
     async def _on_audio_complete(self, event: AgentEvent) -> None:
         """Notify avatar that speech has ended."""
         await self.avatar.speak_end()
+
+    async def _on_audio_chunk(self, event: AgentEvent) -> None:
+        """Send TTS audio chunk to frontend for playback."""
+        audio_bytes = event.payload.get("data", b"")
+        chunk_index = event.payload.get("chunk_index", 0)
+        
+        audio_hex = audio_bytes.hex()
+        
+        await self.avatar.send_command({
+            "type": "audio_chunk",
+            "audio_data": audio_hex,
+            "audio_bytes": len(audio_bytes),
+            "chunk_index": chunk_index,
+            "timestamp": event.payload.get("timestamp", 0),
+        })
 
     async def _on_emotion_detected(self, event: AgentEvent) -> None:
         """Set avatar expression based on detected emotion."""
