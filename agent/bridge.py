@@ -137,8 +137,8 @@ class OrchestratorBridge:
         
         await self.avatar.send_command({
             "type": "audio_chunk",
-            "audio_data": audio_hex,
-            "audio_bytes": len(audio_bytes),
+            "data": audio_hex,
+            "sample_rate": 22050,
             "chunk_index": chunk_index,
             "timestamp": event.payload.get("timestamp", 0),
         })
