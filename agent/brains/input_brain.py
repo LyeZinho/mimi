@@ -14,7 +14,8 @@ import time
 
 from agent.audio import STTEngine, VADEngine
 from agent.buffers import AudioChunk, BufferManager
-from agent.core.messaging import Brain, EventType, get_shared_state
+from agent.core.messaging import Brain, EventType, get_event_bus, get_shared_state
+from agent.core.messaging.shared_state import UserContextState
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,11 @@ class InputBrain(Brain):
     async def initialize(self) -> None:
         await super().initialize()
         await self.stt_engine.initialize()
-        logger.info(f"[{self.brain_id}] VAD and STT initialized")
+        
+        bus = get_event_bus()
+        bus.subscribe(EventType.AUDIO_CHUNK)(self._on_audio_chunk_received)
+        
+        logger.info(f"[{self.brain_id}] VAD and STT initialized, subscribed to AUDIO_CHUNK events")
 
     async def process(self) -> None:
         """Processa áudio: captura via sounddevice, VAD, STT."""
@@ -112,7 +117,7 @@ class InputBrain(Brain):
                 await self.publish_event(
                     EventType.VAD_START, {"timestamp": time.time()}
                 )
-                await get_shared_state().set_state("listening")
+                await get_shared_state().set_state(UserContextState.LISTENING)
 
             elif not vad_result and self.is_listening:
                 # Fim de fala detectado
@@ -129,6 +134,19 @@ class InputBrain(Brain):
         except Exception as e:
             logger.error(f"Error in handle_audio_frame: {e}", exc_info=True)
             await self.record_event(success=False, latency_ms=0)
+
+    async def _on_audio_chunk_received(self, event) -> None:
+        """Handler for AUDIO_CHUNK events from WebSocket bridge (browser microphone)."""
+        try:
+            audio_bytes = event.payload.get("audio_bytes", b"")
+            sample_rate = event.payload.get("sample_rate", 16000)
+            
+            if not audio_bytes:
+                return
+            
+            await self.handle_audio_frame(audio_bytes)
+        except Exception as e:
+            logger.error(f"Error processing audio chunk from bridge: {e}", exc_info=True)
 
     def _run_vad(self, audio_data: bytes) -> bool:
         """Executa VAD com webrtcvad."""

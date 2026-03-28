@@ -61,6 +61,26 @@ class OrchestratorBridge:
         await self.event_bus.publish(event)
         logger.info(f"Bridge published TRANSCRIPTION_COMPLETE: {text[:50]}...")
 
+    async def handle_audio_chunk(self, audio_data: list, sample_rate: int = 16000) -> None:
+        """Called when audio chunks arrive via WebSocket from browser microphone."""
+        if not audio_data:
+            return
+        
+        try:
+            pcm_bytes = bytes(audio_data)
+            event = AgentEvent(
+                type=EventType.AUDIO_CHUNK,
+                source_brain="bridge",
+                payload={
+                    "audio_bytes": pcm_bytes,
+                    "sample_rate": sample_rate,
+                    "source": "web_microphone",
+                },
+            )
+            await self.event_bus.publish(event)
+        except Exception as e:
+            logger.error(f"Error processing audio chunk: {e}")
+
     # ===== OUTBOUND: EventBus → WS =====
 
     async def _on_response_ready(self, event: AgentEvent) -> None:

@@ -34,15 +34,9 @@ export class AvatarStateManager {
             return;
         }
         
-        const originalCallback = this.ws.onMessageCallback;
-        
         this.ws.onMessage((message) => {
             if (message.type === 'POSE_PLAYBACK' && this.posePlayer) {
                 this.handlePosePlayback(message);
-            }
-            
-            if (originalCallback) {
-                originalCallback(message);
             }
         });
     }

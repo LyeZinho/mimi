@@ -341,10 +341,23 @@ wss.on('connection', (ws) => {
         }
         break;
 
+      case 'audio_chunk': // Forward audio to Agent for VAD+STT
+        if (msg.data && msg.sample_rate) {
+          const audioMsg = JSON.stringify({
+            type: 'audio_chunk',
+            data: msg.data,
+            sample_rate: msg.sample_rate
+          });
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN && client !== ws) {
+              client.send(audioMsg);
+            }
+          });
+        }
+        break;
+
       case 'agent_response': // Response from Agent
-        // Broadcast to frontend
         broadcastState();
-        // Also send specific chat response to all (or back to sender if we tracked ID)
         const responseMsg = JSON.stringify({
           type: 'chat_response',
           text: msg.text,
@@ -353,6 +366,23 @@ wss.on('connection', (ws) => {
         wss.clients.forEach(client => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(responseMsg);
+          }
+        });
+        break;
+
+      case 'processing_update': // Processing stage updates from Agent
+        const processingMsg = JSON.stringify({
+          type: 'processing_update',
+          stage: msg.stage,
+          text: msg.text,
+          intent: msg.intent,
+          plan: msg.plan,
+          sentiment: msg.sentiment,
+          emotion: msg.emotion
+        });
+        wss.clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(processingMsg);
           }
         });
         break;

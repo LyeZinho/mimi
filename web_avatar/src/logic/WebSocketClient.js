@@ -9,8 +9,8 @@ export class WebSocketClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 2000;
-        this.onMessageCallback = null;
-        this.onStatusChangeCallback = null;
+        this._messageHandlers = new Set();
+        this._statusHandlers = new Set();
     }
 
     /**
@@ -94,8 +94,12 @@ export class WebSocketClient {
             const message = JSON.parse(data);
             console.log('Received message:', message);
 
-            if (this.onMessageCallback) {
-                this.onMessageCallback(message);
+            for (const handler of this._messageHandlers) {
+                try {
+                    handler(message);
+                } catch (err) {
+                    console.error('Error in message handler:', err);
+                }
             }
         } catch (error) {
             console.error('Error parsing message:', error);
@@ -125,23 +129,29 @@ export class WebSocketClient {
      * Update connection status
      */
     updateStatus(status) {
-        if (this.onStatusChangeCallback) {
-            this.onStatusChangeCallback(status);
+        for (const handler of this._statusHandlers) {
+            try {
+                handler(status);
+            } catch (err) {
+                console.error('Error in status handler:', err);
+            }
         }
     }
 
     /**
-     * Set message callback
+     * Subscribe to messages. Returns unsubscribe function.
      */
     onMessage(callback) {
-        this.onMessageCallback = callback;
+        this._messageHandlers.add(callback);
+        return () => this._messageHandlers.delete(callback);
     }
 
     /**
-     * Set status change callback
+     * Subscribe to status changes. Returns unsubscribe function.
      */
     onStatusChange(callback) {
-        this.onStatusChangeCallback = callback;
+        this._statusHandlers.add(callback);
+        return () => this._statusHandlers.delete(callback);
     }
 
     /**

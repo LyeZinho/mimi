@@ -1,12 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function ProcessingCards({ wsClient = null }) {
+export default function ProcessingCards({ wsClient = null, lastUserMessage = null }) {
   const [inputText, setInputText] = useState(null);
   const [processing, setProcessing] = useState(null);
   const [response, setResponse] = useState(null);
   const [inputSentiment, setInputSentiment] = useState(null);
   const [responseEmotion, setResponseEmotion] = useState(null);
-  const [isListening, setIsListening] = useState(false);
+
+  useEffect(() => {
+    if (lastUserMessage) {
+      setInputText(lastUserMessage);
+      setProcessing(null);
+      setResponse(null);
+      setInputSentiment(null);
+      setResponseEmotion(null);
+    }
+  }, [lastUserMessage]);
 
   useEffect(() => {
     if (!wsClient) return;
@@ -40,26 +49,13 @@ export default function ProcessingCards({ wsClient = null }) {
         }
       }
       
-      if (msg.type === 'chat') {
-        setInputText(msg.text);
-        setProcessing(null);
-        setResponse(null);
-        setInputSentiment(null);
-        setResponseEmotion(null);
-      }
-      
-      if (msg.type === 'agent_response') {
+      if (msg.type === 'chat_response') {
         setResponse(msg.text);
       }
     };
 
-    wsClient.onMessage(handleMessage);
-
-    return () => {
-      if (wsClient && wsClient.onMessage) {
-        wsClient.onMessage(null);
-      }
-    };
+    const unsub = wsClient.onMessage(handleMessage);
+    return () => unsub();
   }, [wsClient]);
 
   const getSentimentEmoji = (sentiment) => {

@@ -1,189 +1,119 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+const EMOTION_COLORS = {
+  happy: '#22c55e',
+  sad: '#3b82f6',
+  angry: '#ef4444',
+  surprised: '#f59e0b',
+  confused: '#8b5cf6',
+  neutral: '#9ca3af',
+  thinking: '#6b7280',
+};
+
+const MAX_HISTORY = 20;
+
 export default function DebugPanel({ wsClient = null, frameStats = { fps: 0, frameCount: 0 } }) {
-  const [emotion, setEmotion] = useState(null);
-  const [action, setAction] = useState(null);
-  const [speaking, setSpeaking] = useState(false);
-  const [animation, setAnimation] = useState(null);
+  const [emotionHistory, setEmotionHistory] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [currentEmotion, setCurrentEmotion] = useState('neutral');
+  const [currentGesture, setCurrentGesture] = useState(null);
+  const canvasRef = useRef(null);
 
   useEffect(() => {
     if (!wsClient) return;
 
     const handleMessage = (msg) => {
       if (msg.type === 'avatar_control') {
-        if (msg.emotion !== undefined) {
-          setEmotion(msg.emotion);
-          setLastUpdate(new Date().toLocaleTimeString());
+        const now = new Date().toLocaleTimeString();
+        setLastUpdate(now);
+
+        if (msg.emotion) {
+          const em = msg.emotion.toLowerCase();
+          setCurrentEmotion(em);
+          setEmotionHistory(prev => {
+            const next = [...prev, { emotion: em, time: Date.now() }];
+            return next.slice(-MAX_HISTORY);
+          });
         }
-        if (msg.gesture !== undefined) {
-          setAction(msg.gesture);
-          setLastUpdate(new Date().toLocaleTimeString());
-        }
-        if (msg.speak !== undefined) {
-          setSpeaking(msg.speak);
-          setLastUpdate(new Date().toLocaleTimeString());
-        }
-        if (msg.animation !== undefined) {
-          setAnimation(msg.animation);
-          setLastUpdate(new Date().toLocaleTimeString());
+        if (msg.gesture) {
+          setCurrentGesture(msg.gesture);
         }
       }
     };
 
-    wsClient.onMessage(handleMessage);
-
-    return () => {
-      if (wsClient && wsClient.onMessage) {
-        wsClient.onMessage(null);
-      }
-    };
+    const unsub = wsClient.onMessage(handleMessage);
+    return () => unsub();
   }, [wsClient]);
 
-  const getEmotionColor = (emotion) => {
-    const colors = {
-      happy: '#22c55e',
-      sad: '#3b82f6',
-      angry: '#ef4444',
-      surprised: '#f59e0b',
-      confused: '#8b5cf6',
-      neutral: '#9ca3af',
-      thinking: '#6b7280'
-    };
-    return colors[emotion?.toLowerCase()] || '#9ca3af';
-  };
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (emotionHistory.length < 2) {
+      ctx.fillStyle = '#333';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Waiting for data...', w / 2, h / 2);
+      return;
+    }
+
+    const barWidth = Math.max(4, (w - 4) / MAX_HISTORY);
+
+    emotionHistory.forEach((entry, i) => {
+      const color = EMOTION_COLORS[entry.emotion] || EMOTION_COLORS.neutral;
+      const x = i * barWidth + 2;
+
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.3 + (i / emotionHistory.length) * 0.7;
+      ctx.fillRect(x, 2, barWidth - 1, h - 4);
+      ctx.globalAlpha = 1;
+    });
+  }, [emotionHistory]);
 
   return (
-    <div style={{
-      padding: '1rem',
-      background: '#1a1a2e',
-      border: '1px solid #333',
-      borderRadius: '8px',
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      color: '#e5e7eb',
-      marginTop: '1rem'
-    }}>
-      <h4 style={{ 
-        margin: '0 0 1rem 0', 
-        color: '#22c55e',
-        fontSize: '14px',
-        fontWeight: 'bold'
-      }}>
-        🔍 Multimodal Debug
-      </h4>
+    <div className="debug-panel">
+      <div className="debug-header">
+        <span className="debug-title">Activity Monitor</span>
+        <span className="debug-time">{lastUpdate || '—'}</span>
+      </div>
 
-      <div style={{ marginBottom: '0.5rem' }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          marginBottom: '0.5rem',
-          alignItems: 'center'
-        }}>
-          <span style={{ color: '#9ca3af' }}>Emotion:</span>
-          <span style={{
-            color: getEmotionColor(emotion),
-            fontWeight: 'bold',
-            textTransform: 'uppercase',
-            fontSize: '12px'
-          }}>
-            {emotion || '—'}
+      <canvas
+        ref={canvasRef}
+        width={240}
+        height={32}
+        className="emotion-timeline"
+      />
+
+      <div className="debug-metrics">
+        <div className="debug-metric">
+          <span className="debug-metric-label">Mirror</span>
+          <span className="debug-metric-value" style={{ color: '#34d399' }}>
+            {frameStats.fps} fps
           </span>
         </div>
-
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          marginBottom: '0.5rem',
-          alignItems: 'center'
-        }}>
-          <span style={{ color: '#9ca3af' }}>Action/Gesture:</span>
-          <span style={{ 
-            color: '#60a5fa', 
-            fontWeight: 'bold',
-            fontSize: '12px'
-          }}>
-            {action || '—'}
+        <div className="debug-metric">
+          <span className="debug-metric-label">Frames</span>
+          <span className="debug-metric-value" style={{ color: '#a78bfa' }}>
+            {frameStats.frameCount}
           </span>
         </div>
-
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          marginBottom: '0.5rem',
-          alignItems: 'center'
-        }}>
-          <span style={{ color: '#9ca3af' }}>Speaking:</span>
-          <span style={{
-            color: speaking ? '#22c55e' : '#9ca3af',
-            fontWeight: 'bold',
-            fontSize: '12px'
-          }}>
-            {speaking ? '🔊 ON' : '🔇 OFF'}
+        <div className="debug-metric">
+          <span className="debug-metric-label">Mood</span>
+          <span className="debug-metric-value" style={{ color: EMOTION_COLORS[currentEmotion] }}>
+            {currentEmotion}
           </span>
         </div>
-
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          marginBottom: '0.5rem',
-          alignItems: 'center'
-        }}>
-          <span style={{ color: '#9ca3af' }}>Animation:</span>
-          <span style={{ 
-            color: '#fbbf24',
-            fontSize: '12px'
-          }}>
-            {animation || '—'}
+        <div className="debug-metric">
+          <span className="debug-metric-label">Gesture</span>
+          <span className="debug-metric-value" style={{ color: '#60a5fa' }}>
+            {currentGesture || '—'}
           </span>
-        </div>
-
-        <div style={{ 
-          borderTop: '1px solid #333',
-          paddingTop: '0.5rem',
-          marginTop: '0.5rem'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            marginBottom: '0.5rem',
-            alignItems: 'center'
-          }}>
-            <span style={{ color: '#9ca3af' }}>Mirror FPS:</span>
-            <span style={{ 
-              color: '#34d399',
-              fontWeight: 'bold',
-              fontSize: '12px'
-            }}>
-              {frameStats.fps}
-            </span>
-          </div>
-
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            marginBottom: '0.5rem',
-            alignItems: 'center'
-          }}>
-            <span style={{ color: '#9ca3af' }}>Frames:</span>
-            <span style={{ 
-              color: '#a78bfa',
-              fontSize: '12px'
-            }}>
-              {frameStats.frameCount}
-            </span>
-          </div>
-        </div>
-
-        <div style={{
-          borderTop: '1px solid #333',
-          paddingTop: '0.5rem',
-          marginTop: '0.5rem',
-          fontSize: '10px',
-          color: '#6b7280',
-          textAlign: 'right'
-        }}>
-          Last: {lastUpdate || '—'}
         </div>
       </div>
     </div>

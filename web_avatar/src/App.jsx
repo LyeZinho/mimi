@@ -1,166 +1,100 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AvatarCanvas from './components/AvatarCanvas';
-import AnimationControls from './components/AnimationControls';
-import ExpressionControls from './components/ExpressionControls';
 import WebSocketStatus from './components/WebSocketStatus';
 import ModelUpload from './components/ModelUpload';
-import ChatInterface from './components/ChatInterface';
+import VoiceInput from './components/VoiceInput';
 import DebugPanel from './components/DebugPanel';
 import ProcessingCards from './components/ProcessingCards';
+import AgentStateIndicator from './components/AgentStateIndicator';
 import { WebSocketClient } from './logic/WebSocketClient';
 import { AvatarStateManager } from './logic/AvatarStateManager';
-import GUI from 'lil-gui';
 import './style.css';
+
+const DEFAULT_MODEL_URL = '/models/Mimi.vrm';
 
 export default function App() {
   const [modelUrl, setModelUrl] = useState(null);
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [isObsMode, setIsObsMode] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [fps, setFps] = useState(0);
   const [frameStats, setFrameStats] = useState({ frameCount: 0, fps: 0, lastFrameTime: 0 });
 
-  // Logic instances
   const wsClientRef = useRef(null);
   const stateManagerRef = useRef(null);
   const viewerRef = useRef(null);
-  const guiRef = useRef(null);
 
   useEffect(() => {
-    // Check for OBS mode
     const params = new URLSearchParams(window.location.search);
     if (params.get('mode') === 'obs') {
       setIsObsMode(true);
       document.body.style.background = 'transparent';
     }
 
-    // Initialize Logic Layer
     const wsClient = new WebSocketClient('ws://localhost:8765');
     const stateManager = new AvatarStateManager(wsClient);
 
     wsClientRef.current = wsClient;
     stateManagerRef.current = stateManager;
 
-    // Setup WebSocket listeners
-    wsClient.onStatusChange((status) => {
+    const unsubStatus = wsClient.onStatusChange((status) => {
       setWsStatus(status);
       if (status === 'connected') {
         stateManager.isController = true;
       }
     });
 
-    wsClient.onMessage((msg) => {
-      // Handle incoming messages
+    const unsubMessage = wsClient.onMessage((msg) => {
       if (msg.type === 'avatar_control' && viewerRef.current) {
         const exprCtrl = viewerRef.current.expressionController;
         if (!exprCtrl) return;
 
         if (msg.emotion) {
           exprCtrl.setExpression(msg.emotion);
-          // Sync state
           stateManager.setExpression(msg.emotion);
         }
-        if (msg.speak) {
-          if (msg.speech_text) {
-            const duration = msg.speech_text.length * 50;
-            exprCtrl.speak(duration);
-            stateManager.setSpeaking(true);
-            setTimeout(() => stateManager.setSpeaking(false), duration);
-          }
-        }
-      }
-
-      if (msg.type === 'chat_response') {
-        console.log('[App] Chat response from agent:', msg.text);
-        setChatMessages(prev => [...prev, { sender: 'agent', text: msg.text }]);
-        if (window.speechSynthesis) {
-          const utterance = new SpeechSynthesisUtterance(msg.text);
-          utterance.lang = 'pt-BR';
-          window.speechSynthesis.speak(utterance);
+        if (msg.speak && msg.speech_text) {
+          const duration = msg.speech_text.length * 50;
+          exprCtrl.speak(duration);
+          stateManager.setSpeaking(true);
+          setTimeout(() => stateManager.setSpeaking(false), duration);
         }
       }
     });
 
-    // Connect
     wsClient.connect().catch(err => {
-      console.warn("WS Connect info", err); // Changed to warn to reduce noise
+      console.warn('WS Connect info', err);
     });
 
     return () => {
+      unsubStatus();
+      unsubMessage();
       wsClient.disconnect();
     };
   }, []);
 
-  // Quando um modelo é carregado do upload, sincroniza
-  const handleModelLoaded = (url) => {
-    setModelUrl(url);
-    if (wsClientRef.current) {
-      wsClientRef.current.send({ type: 'set_model', model: url });
-    }
-  };
-
-  // Callback quando o viewer termina de carregar o modelo
-  const handleModelLoadedInViewer = (vrm) => {
-    console.log('[App] Modelo carregado no viewer:', vrm);
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setModelUrl(DEFAULT_MODEL_URL);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleViewerReady = (viewer) => {
     viewerRef.current = viewer;
-    // Initialize animations
     if (viewer && viewer.animationManager) {
       viewer.animationManager.loadAnimation('Idle', '/animations/Idle.fbx')
         .then(() => {
-          viewer.animationManager.play('Idle');
+          viewer.animationManager.play('Idle', true);
           if (stateManagerRef.current) stateManagerRef.current.setAnimation('Idle');
+          console.log('[App] Idle animation started');
         })
-        .catch(e => console.warn("Idle anim missing", e));
-    }
-  };
-
-  const handleExpressionChange = (expression) => {
-    if (viewerRef.current && viewerRef.current.expressionController) {
-      viewerRef.current.expressionController.setExpression(expression);
-      if (stateManagerRef.current) stateManagerRef.current.setExpression(expression);
+        .catch(e => console.warn('Idle anim missing', e));
     }
   };
 
   const handleSendMessage = (text) => {
-    setChatMessages(prev => [...prev, { sender: 'user', text }]);
+    setLastUserMessage(text);
     if (wsClientRef.current) {
-      wsClientRef.current.send({ type: 'chat', text: text });
-    }
-  };
-
-  const handleAnimationChange = (anim) => {
-    if (viewerRef.current && viewerRef.current.animationManager) {
-      if (typeof anim === 'string') {
-        const name = anim;
-        const url = `/animations/${anim}.fbx`;
-        viewerRef.current.animationManager.loadAnimation(name, url)
-          .then(() => {
-            viewerRef.current.animationManager.play(name);
-            if (stateManagerRef.current) stateManagerRef.current.setAnimation({ name, url });
-            // Envia para o backend o objeto completo
-            if (wsClientRef.current) {
-              wsClientRef.current.send({ type: 'set_animation', animation: { name, url } });
-            }
-          })
-          .catch(e => console.error("Anim load failed", e));
-      } else if (anim && anim.url) {
-        viewerRef.current.animationManager.loadAnimation(anim.name, anim.url)
-          .then(() => {
-            viewerRef.current.animationManager.play(anim.name);
-            if (wsClientRef.current) {
-              wsClientRef.current.send({ type: 'set_animation', animation: { name: anim.name, url: anim.url } });
-            }
-          });
-      }
-    }
-  };
-
-  const handlePoseChange = (pose) => {
-    if (viewerRef.current && viewerRef.current.animationManager) {
-      viewerRef.current.animationManager.setPose(pose);
+      wsClientRef.current.send({ type: 'chat', text });
     }
   };
 
@@ -170,7 +104,6 @@ export default function App() {
         <AvatarCanvas
           modelUrl={modelUrl}
           onViewerReady={handleViewerReady}
-          onModelLoaded={handleModelLoadedInViewer}
           wsConnection={wsClientRef.current?.ws}
           wsClient={wsClientRef.current}
         />
@@ -190,12 +123,9 @@ export default function App() {
 
       <main className="main-layout">
         <aside className="sidebar left-sidebar">
-          <h3>Model & View</h3>
           <ModelUpload onModelLoaded={setModelUrl} />
-          <div className="panel">
-            <h4>Camera Controls</h4>
-            <p>Wait for CameraWidget...</p>
-          </div>
+          <div className="divider" />
+          <VoiceInput wsClient={wsClientRef.current} />
         </aside>
 
         <section className="viewport-area">
@@ -203,15 +133,12 @@ export default function App() {
             <AvatarCanvas
               modelUrl={modelUrl}
               onViewerReady={handleViewerReady}
-              onModelLoaded={handleModelLoadedInViewer}
               onCameraChange={(cam) => {
                 if (stateManagerRef.current && stateManagerRef.current.isController) {
                   stateManagerRef.current.setCamera(cam.position, cam.target);
                 }
               }}
-              onFrameCaptureUpdate={(stats) => {
-                setFrameStats(stats);
-              }}
+              onFrameCaptureUpdate={(stats) => setFrameStats(stats)}
               wsConnection={wsClientRef.current?.ws}
               wsClient={wsClientRef.current}
             />
@@ -220,21 +147,10 @@ export default function App() {
         </section>
 
         <aside className="sidebar right-sidebar">
-          <h3>Controls</h3>
-          <AnimationControls
-            onAnimationChange={handleAnimationChange}
-            onPoseChange={handlePoseChange}
-          />
-          <div className="divider"></div>
+          <h3>Agent State</h3>
+          <AgentStateIndicator wsClient={wsClientRef.current} />
+          <div className="divider" />
           <DebugPanel wsClient={wsClientRef.current} frameStats={frameStats} />
-          <div className="divider"></div>
-          <ExpressionControls onExpressionChange={handleExpressionChange} />
-
-          <div className="divider"></div>
-          <h3>Chat & Log</h3>
-          <div className="chat-panel">
-            <ChatInterface onSendMessage={handleSendMessage} messages={chatMessages} />
-          </div>
         </aside>
       </main>
     </div>

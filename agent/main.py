@@ -107,8 +107,13 @@ async def main() -> None:
                 text = data.get("text") or data.get("message", "")
                 if text:
                     await bridge.handle_text_input(text, source="web")
+            elif msg_type == "audio_chunk":
+                audio_data = data.get("data")
+                sample_rate = data.get("sample_rate", 16000)
+                if audio_data:
+                    await bridge.handle_audio_chunk(audio_data, sample_rate)
             elif msg_type == "state":
-                pass  # State updates handled by WebAvatar natively
+                pass
             else:
                 logger.debug(f"Unhandled WS message type in bridge: {msg_type}")
 

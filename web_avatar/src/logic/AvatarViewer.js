@@ -176,14 +176,8 @@ export class AvatarViewer {
                     // Add to scene
                     this.scene.add(vrm.scene);
 
-                    // Rotate model to face camera using humanoid hips
-                    // VRM models are typically facing +Z, we want them facing -Z (camera)
-                    if (vrm.humanoid) {
-                        const hips = vrm.humanoid.getNormalizedBoneNode('hips');
-                        if (hips) {
-                            hips.rotation.y = Math.PI; // 180 degrees
-                        }
-                    }
+                    // Rotate model to face camera (180 degrees around Y axis)
+                    vrm.scene.rotation.y = Math.PI;
 
                     // Initialize Animation Manager
                     this.animationManager = new AnimationManager(vrm);
