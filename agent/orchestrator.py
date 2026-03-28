@@ -99,7 +99,6 @@ class AgentOrchestrator:
             "sentiment_brain",
             self.event_bus,
             self.shared_state,
-            sentiment_engine=self.sentiment_engine,
         )
         self.avatar_brain = AvatarBrain("avatar_brain", self.event_bus, self.shared_state)
 
@@ -124,15 +123,6 @@ class AgentOrchestrator:
 
         await self.shared_state.initialize(self.user_id, self.session_id)
         await self.event_bus.start()
-        
-        # Initialize sentiment engine if available
-        if self.sentiment_engine and hasattr(self.sentiment_engine, 'initialize'):
-            try:
-                await self.sentiment_engine.initialize()
-                logger.info("BertSentimentEngine initialized")
-            except Exception as e:
-                logger.warning(f"Failed to initialize BertSentimentEngine: {e}")
-                self.sentiment_engine = None
 
         for brain in self.brains:
             await brain.initialize()
