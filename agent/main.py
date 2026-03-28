@@ -44,7 +44,7 @@ def create_tts_provider():
         from agent.output.config import PiperConfig
         from agent.output.piper_provider import PiperProvider
 
-        config = PiperConfig(provider="piper", model="pt_PT")
+        config = PiperConfig(provider="piper", model="pt_BR")
         provider = PiperProvider(config)
         logger.info("PiperTTS provider initialized")
         return provider

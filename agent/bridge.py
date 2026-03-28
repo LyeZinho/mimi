@@ -129,11 +129,23 @@ class OrchestratorBridge:
         await self.avatar.speak_end()
 
     async def _on_audio_chunk(self, event: AgentEvent) -> None:
-        """Send TTS audio chunk to frontend for playback."""
+        """Send TTS audio chunk to frontend for playback.
+        
+        IMPORTANT: Only forward chunks from output_brain (TTS synthesis).
+        Skip chunks from bridge/input_brain (microphone input) to prevent echo loop.
+        """
+        # Only forward TTS-generated audio, not microphone input
+        if event.source_brain != "output_brain":
+            return
+        
         audio_bytes = event.payload.get("data", b"")
         chunk_index = event.payload.get("chunk_index", 0)
         
-        logger.debug(f"Bridge received AUDIO_CHUNK #{chunk_index}: {len(audio_bytes)} bytes")
+        if not audio_bytes or not isinstance(audio_bytes, (bytes, bytearray)):
+            logger.warning(f"Bridge: AUDIO_CHUNK #{chunk_index} has invalid data type: {type(audio_bytes)}")
+            return
+        
+        logger.info(f"Bridge forwarding TTS AUDIO_CHUNK #{chunk_index}: {len(audio_bytes)} bytes")
         
         audio_hex = audio_bytes.hex()
         
