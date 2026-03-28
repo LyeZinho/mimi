@@ -92,7 +92,6 @@ export default function App() {
   };
 
   const handleSendMessage = (text) => {
-    setLastUserMessage(text);
     if (wsClientRef.current) {
       wsClientRef.current.send({ type: 'chat', text });
     }
@@ -117,7 +116,7 @@ export default function App() {
         <div className="logo">Mimi Dev Console</div>
         <div className="status-bar">
           <WebSocketStatus status={wsStatus} />
-          <span className="fps-counter">FPS: {fps}</span>
+          <span className="fps-counter">FPS: {frameStats.fps}</span>
         </div>
       </header>
 
