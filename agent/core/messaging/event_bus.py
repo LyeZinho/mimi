@@ -55,6 +55,7 @@ class EventType(str, Enum):
     # Output Brain
     RESPONSE_READY = "response_ready"
     AUDIO_COMPLETE = "audio_complete"
+    PHONEME_DATA = "phoneme_data"
     TTS_STARTED = "tts_started"
     TTS_CHUNK = "tts_chunk"
     TTS_COMPLETE = "tts_complete"
