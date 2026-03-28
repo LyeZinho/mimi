@@ -154,9 +154,9 @@ class OrchestratorBridge:
         await self.avatar.send_command({
             "type": "processing_update",
             "stage": "processing",
-            "intent": intent.get("intent_type", "unknown"),
-            "plan": intent.get("plan", ""),
-            "response": intent.get("response", ""),
+            "intent": intent.get("intent", "chat"),
+            "confidence": intent.get("confidence", 0.5),
+            "sentiment": intent.get("sentiment", "neutral"),
         })
 
     async def _on_sentiment_updated(self, event: AgentEvent) -> None:
