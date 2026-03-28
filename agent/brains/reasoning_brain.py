@@ -56,20 +56,19 @@ class ReasoningBrain(Brain):
         
         try:
             state = get_shared_state()
-            context_snapshot = await state.get_context_snapshot()
             
-            # TODO: invocar LLM com transcript + contexto
-            # TODO: fazer streaming da resposta
-            intent = await self._infer_intent(transcript, context_snapshot)
+            intent = await self._extract_intent(transcript)
+            logger.info(f"[{self.brain_id}] Extracted intent: {intent}")
             
             await self.publish_event(EventType.INTENT_DETECTED, {
                 "intent": intent,
                 "transcript": transcript,
-                "confidence": 0.92,
+                "confidence": intent.get("confidence", 0.5),
             })
             
-            # Emit RESPONSE_READY with the generated response text
-            response_text = intent.get("response", f"Echo: {transcript}")
+            response_text = await self._generate_response(transcript, intent)
+            logger.info(f"[{self.brain_id}] Generated response: {response_text[:100]}")
+            
             await self.publish_event(EventType.RESPONSE_READY, {
                 "response": response_text,
                 "intent": intent,
@@ -82,37 +81,47 @@ class ReasoningBrain(Brain):
             logger.error(f"Error in _on_transcription_complete: {e}", exc_info=True)
             await self.record_event(success=False, latency_ms=0)
     
-    async def _infer_intent(self, transcript: str, context) -> dict:
-        """Invoca LLM para extrair intenção ou usa fallback."""
+    async def _extract_intent(self, transcript: str) -> dict:
+        """Extract intent from transcript."""
         if not self.llm_provider:
             return {
-                "action": "chat",
-                "response": f"Echo: {transcript}",
-                "sentiment": "neutral",
+                "intent": "greeting" if any(w in transcript.lower() for w in ["olá", "oi", "ola"]) else "chat",
+                "confidence": 0.5,
             }
         
         try:
-            prompt = PromptTemplates.intent_extraction(transcript, context)
+            prompt = PromptTemplates.intent_extraction(transcript)
             response = await self.llm_provider.generate(prompt, stream=False)
+            
+            if not response:
+                return {"intent": "chat", "confidence": 0.3}
             
             parsed = json.loads(response)
             return {
-                "action": "chat",
-                "response": f"Intent: {parsed.get('intent', 'unknown')}",
+                "intent": parsed.get("intent", "chat"),
+                "confidence": float(parsed.get("confidence", 0.5)),
                 "sentiment": parsed.get("sentiment", "neutral"),
-                "confidence": parsed.get("confidence", 0.0),
-                "intent": parsed.get("intent"),
             }
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM response as JSON: {e}", exc_info=True)
-            return {
-                "action": "chat",
-                "response": f"Echo: {transcript}",
-                "sentiment": "neutral",
-            }
+        except (json.JSONDecodeError, LLMProviderError) as e:
+            logger.warning(f"Failed to extract intent: {e}, using fallback")
+            return {"intent": "chat", "confidence": 0.3}
+    
+    async def _generate_response(self, transcript: str, intent: dict) -> str:
+        """Generate response based on transcript and intent."""
+        if not self.llm_provider:
+            return f"Echo: {transcript}"
+        
+        try:
+            prompt = PromptTemplates.response_generation_simple(transcript, intent.get("intent", "chat"))
+            response = await self.llm_provider.generate(prompt, stream=False)
+            
+            if not response:
+                return f"Echo: {transcript}"
+            
+            return response.strip()
         except LLMProviderError as e:
-            logger.error(f"LLM provider error: {e}", exc_info=True)
-            raise
+            logger.warning(f"Failed to generate response: {e}, using fallback")
+            return f"Echo: {transcript}"
 
     async def health_check(self) -> dict:
         """Verify ReasoningBrain is operational."""

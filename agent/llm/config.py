@@ -17,6 +17,7 @@ class OllamaConfig(LLMConfig):
     """Configuration for Ollama provider."""
 
     host: str = "http://localhost:11434"
+    api_key: str = ""
     temperature: float = 0.7
     top_p: float = 0.9
 

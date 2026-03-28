@@ -61,6 +61,7 @@ def create_llm_provider():
             provider="ollama",
             model=LLM_MODEL,
             host=host,
+            api_key=OLLAMA_API_KEY,
             temperature=0.7,
         )
         provider = OllamaProvider(config)

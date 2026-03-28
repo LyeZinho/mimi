@@ -45,7 +45,11 @@ class OllamaProvider(LLMProvider):
             raise
 
     async def _batch_generate(self, url: str, payload: dict, start_time: float) -> str:
-        async with self.session.post(url, json=payload) as response:
+        headers = {}
+        if self.config.api_key:
+            headers["Authorization"] = f"Bearer {self.config.api_key}"
+        
+        async with self.session.post(url, json=payload, headers=headers) as response:
             data = await response.json()
             
             latency_ms = (time.time() - start_time) * 1000
@@ -62,7 +66,11 @@ class OllamaProvider(LLMProvider):
             return response_text
 
     async def _stream_generate(self, url: str, payload: dict, start_time: float) -> AsyncIterator[str]:
-        async with self.session.post(url, json=payload) as response:
+        headers = {}
+        if self.config.api_key:
+            headers["Authorization"] = f"Bearer {self.config.api_key}"
+        
+        async with self.session.post(url, json=payload, headers=headers) as response:
             async for line in response.content:
                 if line:
                     data = json.loads(line.decode())
@@ -82,8 +90,12 @@ class OllamaProvider(LLMProvider):
             if self.session is None:
                 self.session = aiohttp.ClientSession()
             
+            headers = {}
+            if self.config.api_key:
+                headers["Authorization"] = f"Bearer {self.config.api_key}"
+            
             url = f"{self.config.host}/api/tags"
-            async with self.session.get(url) as response:
+            async with self.session.get(url, headers=headers) as response:
                 return response.status == 200
         except Exception:
             return False
