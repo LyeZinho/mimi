@@ -1,0 +1,37 @@
+.audio-player {
+  padding: 1rem;
+  background: rgba(100, 150, 255, 0.1);
+  border-radius: 8px;
+  margin: 0.5rem 0;
+}
+
+.audio-status {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.audio-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.audio-controls button {
+  padding: 0.5rem 1rem;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.audio-controls button:hover {
+  background: #357abd;
+}
+
+.audio-controls button:active {
+  transform: scale(0.98);
+}
