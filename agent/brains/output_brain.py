@@ -57,6 +57,10 @@ class OutputBrain(Brain):
     
     async def _synthesize_and_stream(self, text: str) -> None:
         """Síntese de voz com streaming."""
+        if not self.tts_provider:
+            logger.warning("TTS provider not available")
+            return
+            
         await self.publish_event(EventType.TTS_STARTED, {
             "text": text,
             "timestamp": time.time(),
@@ -68,7 +72,9 @@ class OutputBrain(Brain):
             audio_chunks = []
             chunk_index = 0
             
-            async for chunk in await self.tts_provider.synthesize(text, stream=True):
+            # synthesize with stream=True returns AsyncIterator[bytes]
+            synthesize_result = self.tts_provider.synthesize(text, stream=True)
+            async for chunk in synthesize_result:  # type: ignore
                 audio_chunks.append(chunk)
                 
                 await self.publish_event(EventType.AUDIO_CHUNK, {
