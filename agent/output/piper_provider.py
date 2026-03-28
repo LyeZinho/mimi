@@ -105,7 +105,7 @@ class PiperProvider(TTSProvider):
             sample_rate = 22050
             
             for audio_chunk in voice.synthesize(text, syn_config):
-                audio_chunks.append(audio_chunk.audio)
+                audio_chunks.append(audio_chunk.audio_int16_bytes)
                 sample_rate = audio_chunk.sample_rate
             
             if not audio_chunks:

@@ -8,7 +8,7 @@ from agent.output.config import PiperConfig
 class MockAudioChunk:
     """Mock audio chunk from Piper voice synthesis."""
     def __init__(self, audio: bytes, sample_rate: int = 22050):
-        self.audio = audio
+        self.audio_int16_bytes = audio
         self.sample_rate = sample_rate
 
 
