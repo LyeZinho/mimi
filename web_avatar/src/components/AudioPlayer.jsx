@@ -23,7 +23,7 @@ export const AudioPlayer = ({ ws, isConnected }) => {
         const message = JSON.parse(event.data);
         
         if (message.type === 'audio_chunk') {
-          addAudioChunk(message.audio_data, message.sample_rate || 22050);
+          addAudioChunk(message.data, message.sample_rate || 22050);
           setChunkCount(prev => prev + 1);
           
           if (!isPlaying && chunkCount === 0) {
