@@ -60,6 +60,8 @@ class OutputBrain(Brain):
         if not self.tts_provider:
             logger.warning("TTS provider not available")
             return
+        
+        logger.info(f"[{self.brain_id}] Starting TTS synthesis for: {text[:50]}...")
             
         await self.publish_event(EventType.TTS_STARTED, {
             "text": text,
@@ -72,10 +74,13 @@ class OutputBrain(Brain):
             audio_chunks = []
             chunk_index = 0
             
-            # synthesize with stream=True returns AsyncIterator[bytes]
+            logger.info(f"[{self.brain_id}] Calling synthesize(stream=True)...")
             synthesize_result = self.tts_provider.synthesize(text, stream=True)
+            logger.info(f"[{self.brain_id}] Got synthesize_result: {type(synthesize_result)}")
+            
             async for chunk in synthesize_result:  # type: ignore
                 audio_chunks.append(chunk)
+                logger.debug(f"[{self.brain_id}] Got audio chunk {chunk_index}: {len(chunk)} bytes")
                 
                 await self.publish_event(EventType.AUDIO_CHUNK, {
                     "chunk_index": chunk_index,
@@ -84,6 +89,8 @@ class OutputBrain(Brain):
                 })
                 
                 chunk_index += 1
+            
+            logger.info(f"[{self.brain_id}] Synthesis complete: {chunk_index} chunks")
             
             # Publish phoneme data for avatar sync
             if hasattr(self.tts_provider, '_last_phonemes'):

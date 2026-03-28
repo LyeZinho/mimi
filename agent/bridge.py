@@ -133,6 +133,8 @@ class OrchestratorBridge:
         audio_bytes = event.payload.get("data", b"")
         chunk_index = event.payload.get("chunk_index", 0)
         
+        logger.debug(f"Bridge received AUDIO_CHUNK #{chunk_index}: {len(audio_bytes)} bytes")
+        
         audio_hex = audio_bytes.hex()
         
         await self.avatar.send_command({
