@@ -1,8 +1,15 @@
 import asyncio
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from agent.output.piper_provider import PiperProvider
 from agent.output.config import PiperConfig
+
+
+class MockAudioChunk:
+    """Mock audio chunk from Piper voice synthesis."""
+    def __init__(self, audio: bytes, sample_rate: int = 22050):
+        self.audio = audio
+        self.sample_rate = sample_rate
 
 
 @pytest.mark.asyncio
@@ -11,12 +18,18 @@ async def test_piper_provider_synthesize_streaming():
     
     config = PiperConfig(provider="piper", model="pt_PT")
     
-    with patch('agent.output.piper_provider.piper') as mock_piper:
+    with patch('agent.output.piper_provider.PiperVoice') as mock_piper_voice_class:
+        # Mock the voice instance
+        mock_voice = MagicMock()
+        mock_piper_voice_class.load.return_value = mock_voice
+        
+        # Create test audio and split into chunks for mock
         test_audio = b"x" * 5000
-        mock_piper.synthesize_args.return_value = {
-            "audio_data": test_audio,
-            "sample_rate": 22050,
-        }
+        audio_chunks = [
+            MockAudioChunk(test_audio[i:i+2048], sample_rate=22050)
+            for i in range(0, len(test_audio), 2048)
+        ]
+        mock_voice.synthesize.return_value = audio_chunks
         
         provider = PiperProvider(config)
         
@@ -36,6 +49,7 @@ async def test_piper_provider_synthesize_streaming():
         full_reconstructed = b"".join(chunks)
         assert full_reconstructed == test_audio, "Concatenated chunks should equal original audio"
         
+        # All but last chunk should be 1024 bytes (streaming chunk size)
         for chunk in chunks[:-1]:
             assert len(chunk) == 1024, f"Chunk size should be 1024, got {len(chunk)}"
 
@@ -46,12 +60,16 @@ async def test_piper_provider_synthesize_non_streaming():
     
     config = PiperConfig(provider="piper", model="pt_PT")
     
-    with patch('agent.output.piper_provider.piper') as mock_piper:
+    with patch('agent.output.piper_provider.PiperVoice') as mock_piper_voice_class:
+        mock_voice = MagicMock()
+        mock_piper_voice_class.load.return_value = mock_voice
+        
         test_audio = b"x" * 5000
-        mock_piper.synthesize_args.return_value = {
-            "audio_data": test_audio,
-            "sample_rate": 22050,
-        }
+        audio_chunks = [
+            MockAudioChunk(test_audio[i:i+2048], sample_rate=22050)
+            for i in range(0, len(test_audio), 2048)
+        ]
+        mock_voice.synthesize.return_value = audio_chunks
         
         provider = PiperProvider(config)
         
@@ -67,7 +85,7 @@ async def test_piper_provider_empty_text_raises_error():
     
     config = PiperConfig(provider="piper", model="pt_PT")
     
-    with patch('agent.output.piper_provider.piper'):
+    with patch('agent.output.piper_provider.PiperVoice'):
         provider = PiperProvider(config)
         
         with pytest.raises(ValueError, match="Text cannot be empty"):
@@ -83,12 +101,13 @@ async def test_piper_provider_usage_stats():
     
     config = PiperConfig(provider="piper", model="pt_PT")
     
-    with patch('agent.output.piper_provider.piper') as mock_piper:
-        test_audio = b"x" * 2048  
-        mock_piper.synthesize_args.return_value = {
-            "audio_data": test_audio,
-            "sample_rate": 22050,
-        }
+    with patch('agent.output.piper_provider.PiperVoice') as mock_piper_voice_class:
+        mock_voice = MagicMock()
+        mock_piper_voice_class.load.return_value = mock_voice
+        
+        test_audio = b"x" * 2048
+        audio_chunks = [MockAudioChunk(test_audio, sample_rate=22050)]
+        mock_voice.synthesize.return_value = audio_chunks
         
         provider = PiperProvider(config)
         

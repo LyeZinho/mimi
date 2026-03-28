@@ -1,13 +1,19 @@
 """Piper TTS provider implementation."""
 import asyncio
+import io
+from pathlib import Path
 from typing import List, Union, AsyncIterator
 from agent.output.config import PiperConfig
 from agent.output.tts_provider import TTSProvider
 
 try:
-    import piper
+    from piper.voice import PiperVoice, PiperConfig as PiperVoiceConfig, SynthesisConfig
+    import wave
 except ImportError:
-    piper = None
+    PiperVoice = None
+    PiperVoiceConfig = None
+    SynthesisConfig = None
+    wave = None
 
 
 class PiperProvider(TTSProvider):
@@ -23,7 +29,7 @@ class PiperProvider(TTSProvider):
             ImportError: If piper library is not installed.
         """
         super().__init__(config)
-        if piper is None:
+        if PiperVoice is None:
             raise ImportError(
                 "piper library is required. "
                 "Install with: pip install piper-tts"
@@ -31,6 +37,14 @@ class PiperProvider(TTSProvider):
         self._requests = 0
         self._errors = 0
         self._audio_duration_sec = 0.0
+        self._voice = None
+
+    def _load_voice(self) -> PiperVoice:
+        """Lazy load the Piper voice model."""
+        if self._voice is None:
+            model_path = Path(self.config.model_path).expanduser()
+            self._voice = PiperVoice.load(str(model_path))
+        return self._voice
 
     async def synthesize(
         self, text: str, stream: bool = False
@@ -75,24 +89,38 @@ class PiperProvider(TTSProvider):
             text: Text to synthesize.
 
         Returns:
-            Audio bytes.
+            Audio bytes (WAV format).
         """
         await asyncio.sleep(0)
         
-        result = piper.synthesize_args(
-            text=text,
-            speaker_id=self.config.speaker_id,
-            model_name=self.config.model,
-        )
-
-        audio_data = result.get("audio_data", b"")
-        sample_rate = result.get("sample_rate", 22050)
-
-        if audio_data and sample_rate:
-            duration = len(audio_data) / (sample_rate * 2)
-            self._audio_duration_sec += duration
-
-        return audio_data
+        try:
+            voice = self._load_voice()
+            
+            syn_config = SynthesisConfig(
+                speaker_id=self.config.speaker_id,
+                length_scale=1.0 / self.config.speed if self.config.speed else 1.0,
+            )
+            
+            audio_chunks = []
+            sample_rate = 22050
+            
+            for audio_chunk in voice.synthesize(text, syn_config):
+                audio_chunks.append(audio_chunk.audio)
+                sample_rate = audio_chunk.sample_rate
+            
+            if not audio_chunks:
+                return b""
+            
+            audio_data = b"".join(audio_chunks)
+            
+            if audio_data and sample_rate:
+                duration = len(audio_data) / (sample_rate * 2)
+                self._audio_duration_sec += duration
+            
+            return audio_data
+            
+        except Exception as e:
+            raise RuntimeError(f"Piper synthesis error: {str(e)}") from e
 
     async def _synthesize_streaming(
         self, text: str
@@ -103,7 +131,7 @@ class PiperProvider(TTSProvider):
             text: Text to synthesize.
 
         Yields:
-            Audio data chunks.
+            Audio data chunks (bytes).
         """
         audio_data = await self._synthesize_to_bytes(text)
         chunk_size = 1024
