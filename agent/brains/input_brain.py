@@ -49,18 +49,8 @@ class InputBrain(Brain):
             await asyncio.sleep(1.0)
 
     async def handle_audio_frame(self, data: bytes) -> None:
-        """
-        Callback: novo frame de áudio chegou.
-
-        Fluxo:
-        1. Escreve ao ring buffer
-        2. VAD: detecta se há voz
-        3. STT: converte voz a texto
-        4. Publica event
-        """
         await self.buffer_manager.write_audio(data)
 
-        # Publish audio chunk event
         chunk = AudioChunk(data=data, sample_rate=16000)
         await self.publish_event(
             EventType.AUDIO_CHUNK,
@@ -73,12 +63,10 @@ class InputBrain(Brain):
         start_time = time.time()
 
         try:
-            # VAD: detecta inicio/fim de voz
-            ring_snapshot = await self.buffer_manager.get_ring_snapshot()
-            vad_result = self._run_vad(ring_snapshot)
+            # VAD on current frame only (not entire buffer)
+            vad_result = self._run_vad(data)
 
             if vad_result and not self.is_listening:
-                # Início de fala detectado
                 self.is_listening = True
                 logger.info(f"[{self.brain_id}] VAD: Speech detected, starting recording")
                 await self.publish_event(
@@ -87,11 +75,14 @@ class InputBrain(Brain):
                 await get_shared_state().set_state(UserContextState.LISTENING)
 
             elif not vad_result and self.is_listening:
-                # Fim de fala detectado
                 self.is_listening = False
-                logger.info(f"[{self.brain_id}] VAD: Speech ended, running STT")
+                ring_snapshot = await self.buffer_manager.get_ring_snapshot()
+                logger.info(f"[{self.brain_id}] VAD: Speech ended, running STT on {len(ring_snapshot)} bytes")
                 await self.publish_event(EventType.VAD_END, {"timestamp": time.time()})
 
+                # Clear ring buffer BEFORE STT to ensure fresh recording for next utterance
+                await self.buffer_manager.ring_buffer.clear()
+                
                 await self._run_stt(ring_snapshot)
 
             latency = (time.time() - start_time) * 1000
@@ -103,14 +94,19 @@ class InputBrain(Brain):
 
     async def _on_audio_chunk_received(self, event) -> None:
         """Handler for AUDIO_CHUNK events from WebSocket bridge (browser microphone)."""
+        # Skip events published by InputBrain itself to prevent infinite loop
+        if event.source_brain == self.brain_id:
+            return
+        
         try:
             audio_bytes = event.payload.get("audio_bytes", b"")
             sample_rate = event.payload.get("sample_rate", 16000)
             
             if not audio_bytes:
+                logger.warning(f"[{self.brain_id}] Received empty audio chunk, skipping")
                 return
             
-            logger.debug(f"[{self.brain_id}] Received audio chunk: {len(audio_bytes)} bytes @ {sample_rate}Hz")
+            logger.debug(f"[{self.brain_id}] _on_audio_chunk_received: {len(audio_bytes)} bytes @ {sample_rate}Hz (source: {event.source_brain})")
             await self.handle_audio_frame(audio_bytes)
         except Exception as e:
             logger.error(f"Error processing audio chunk from bridge: {e}", exc_info=True)
@@ -136,6 +132,8 @@ class InputBrain(Brain):
             result = await self.stt_engine.transcribe(audio_data, sample_rate=16000)
             self.current_transcript = result["text"]
             confidence = result["confidence"]
+            
+            logger.info(f"[{self.brain_id}] STT Result: '{self.current_transcript}' (confidence: {confidence})")
 
             await self.publish_event(
                 EventType.TRANSCRIPTION_COMPLETE,
@@ -145,8 +143,6 @@ class InputBrain(Brain):
                     "language": result["language"],
                 },
             )
-            
-            await self.buffer_manager.ring_buffer.clear()
         except Exception as e:
             logger.error(f"STT error: {e}")
             await self.publish_event(
