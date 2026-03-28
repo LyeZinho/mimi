@@ -74,7 +74,7 @@ body {
 }
 
 .sidebar {
-  width: 300px;
+  width: 280px;
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
   display: flex;
@@ -91,9 +91,17 @@ body {
 
 .viewport-area {
   flex: 1;
-  position: relative;
+  display: flex;
+  flex-direction: column;
   background: #000;
   overflow: hidden;
+}
+
+.avatar-viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* Panels */

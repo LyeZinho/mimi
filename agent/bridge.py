@@ -32,6 +32,11 @@ class OrchestratorBridge:
         self.event_bus.subscribe(EventType.TTS_STARTED)(self._on_tts_started)
         self.event_bus.subscribe(EventType.AUDIO_COMPLETE)(self._on_audio_complete)
         self.event_bus.subscribe(EventType.EMOTION_DETECTED)(self._on_emotion_detected)
+        
+        # Inbound events for frontend display
+        self.event_bus.subscribe(EventType.TRANSCRIPTION_COMPLETE)(self._on_transcription_complete)
+        self.event_bus.subscribe(EventType.INTENT_DETECTED)(self._on_intent_detected)
+        self.event_bus.subscribe(EventType.SENTIMENT_UPDATED)(self._on_sentiment_updated)
 
         logger.info("OrchestratorBridge started — subscribed to EventBus")
 
@@ -106,3 +111,39 @@ class OrchestratorBridge:
         """Set avatar expression based on detected emotion."""
         sentiment = event.payload.get("sentiment", "neutral")
         await self.avatar.set_expression(sentiment)
+        await self.avatar.send_command({
+            "type": "processing_update",
+            "stage": "response_emotion",
+            "emotion": sentiment,
+            "text": event.payload.get("text", ""),
+        })
+
+    async def _on_transcription_complete(self, event: AgentEvent) -> None:
+        """Send user input to frontend."""
+        transcript = event.payload.get("transcript", "")
+        await self.avatar.send_command({
+            "type": "processing_update",
+            "stage": "input",
+            "text": transcript,
+            "source": event.payload.get("source", "web"),
+        })
+
+    async def _on_intent_detected(self, event: AgentEvent) -> None:
+        """Send agent processing (intent) to frontend."""
+        intent = event.payload.get("intent", {})
+        await self.avatar.send_command({
+            "type": "processing_update",
+            "stage": "processing",
+            "intent": intent.get("intent_type", "unknown"),
+            "plan": intent.get("plan", ""),
+            "response": intent.get("response", ""),
+        })
+
+    async def _on_sentiment_updated(self, event: AgentEvent) -> None:
+        """Send user sentiment to frontend."""
+        await self.avatar.send_command({
+            "type": "processing_update",
+            "stage": "input_sentiment",
+            "sentiment": event.payload.get("sentiment", "neutral"),
+            "text": event.payload.get("text", ""),
+        })

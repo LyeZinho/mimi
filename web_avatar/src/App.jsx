@@ -6,6 +6,7 @@ import WebSocketStatus from './components/WebSocketStatus';
 import ModelUpload from './components/ModelUpload';
 import ChatInterface from './components/ChatInterface';
 import DebugPanel from './components/DebugPanel';
+import ProcessingCards from './components/ProcessingCards';
 import { WebSocketClient } from './logic/WebSocketClient';
 import { AvatarStateManager } from './logic/AvatarStateManager';
 import GUI from 'lil-gui';
@@ -198,21 +199,24 @@ export default function App() {
         </aside>
 
         <section className="viewport-area">
-          <AvatarCanvas
-            modelUrl={modelUrl}
-            onViewerReady={handleViewerReady}
-            onModelLoaded={handleModelLoadedInViewer}
-            onCameraChange={(cam) => {
-              if (stateManagerRef.current && stateManagerRef.current.isController) {
-                stateManagerRef.current.setCamera(cam.position, cam.target);
-              }
-            }}
-            onFrameCaptureUpdate={(stats) => {
-              setFrameStats(stats);
-            }}
-            wsConnection={wsClientRef.current?.ws}
-            wsClient={wsClientRef.current}
-          />
+          <div className="avatar-viewport">
+            <AvatarCanvas
+              modelUrl={modelUrl}
+              onViewerReady={handleViewerReady}
+              onModelLoaded={handleModelLoadedInViewer}
+              onCameraChange={(cam) => {
+                if (stateManagerRef.current && stateManagerRef.current.isController) {
+                  stateManagerRef.current.setCamera(cam.position, cam.target);
+                }
+              }}
+              onFrameCaptureUpdate={(stats) => {
+                setFrameStats(stats);
+              }}
+              wsConnection={wsClientRef.current?.ws}
+              wsClient={wsClientRef.current}
+            />
+          </div>
+          <ProcessingCards wsClient={wsClientRef.current} />
         </section>
 
         <aside className="sidebar right-sidebar">
