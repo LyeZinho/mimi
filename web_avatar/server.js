@@ -343,16 +343,20 @@ wss.on('connection', (ws) => {
 
       case 'audio_chunk': // Forward audio to Agent for VAD+STT
         if (msg.data && msg.sample_rate) {
+          console.log(`[Server] Received audio_chunk: ${msg.data.length} bytes @ ${msg.sample_rate}Hz`);
           const audioMsg = JSON.stringify({
             type: 'audio_chunk',
             data: msg.data,
             sample_rate: msg.sample_rate
           });
+          let sentCount = 0;
           wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN && client !== ws) {
               client.send(audioMsg);
+              sentCount++;
             }
           });
+          console.log(`[Server] Forwarded audio_chunk to ${sentCount} agent client(s)`);
         }
         break;
 

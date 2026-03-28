@@ -50,6 +50,7 @@ export default function VoiceInput({ wsClient }) {
       const resampleRatio = audioContext.sampleRate / targetSampleRate;
       let resampleBuffer = [];
       let pcmBuffer = [];
+      let chunkCount = 0;
 
       processor.onaudioprocess = (event) => {
         const inputData = event.inputBuffer.getChannelData(0);
@@ -71,18 +72,26 @@ export default function VoiceInput({ wsClient }) {
 
         if (pcmBuffer.length >= 1024) {
           if (wsClient && wsClient.isConnected()) {
-            wsClient.send({
+            const sent = wsClient.send({
               type: 'audio_chunk',
               data: pcmBuffer,
               sample_rate: targetSampleRate,
             });
+            if (sent) {
+              chunkCount++;
+              if (chunkCount % 10 === 0) {
+                console.log(`[VoiceInput] Sent ${chunkCount} audio chunks`);
+              }
+            }
+          } else {
+            console.warn('[VoiceInput] WebSocket not connected, cannot send audio');
           }
           pcmBuffer = [];
         }
       };
 
       setIsRecording(true);
-      console.log('[VoiceInput] Recording started');
+      console.log('[VoiceInput] Recording started, WebSocket connected:', wsClient?.isConnected());
     } catch (err) {
       console.error('Microphone access denied:', err);
       setError('Microfone não disponível');
