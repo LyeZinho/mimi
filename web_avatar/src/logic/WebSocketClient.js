@@ -26,8 +26,14 @@ export class WebSocketClient {
                     console.log('WebSocket connected');
                     this.connected = true;
                     this.reconnectAttempts = 0;
-                    this.updateStatus('connected');
-                    resolve();
+                    
+                    this.sendIdentify().then(() => {
+                        this.updateStatus('connected');
+                        resolve();
+                    }).catch(err => {
+                        console.error('Failed to send identify:', err);
+                        reject(err);
+                    });
                 };
 
                 this.ws.onmessage = (event) => {
@@ -49,6 +55,33 @@ export class WebSocketClient {
             } catch (error) {
                 console.error('Failed to connect:', error);
                 this.updateStatus('error');
+                reject(error);
+            }
+        });
+    }
+
+    /**
+     * Send identify message to establish client role
+     */
+    sendIdentify() {
+        return new Promise((resolve, reject) => {
+            try {
+                const clientId = `browser_${Math.random().toString(36).substr(2, 9)}`;
+                const identifyMsg = JSON.stringify({
+                    type: 'identify',
+                    role: 'browser',
+                    client_id: clientId
+                });
+                
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(identifyMsg);
+                    console.log(`Identified as browser: ${clientId}`);
+                    resolve();
+                } else {
+                    reject(new Error('WebSocket not ready'));
+                }
+            } catch (error) {
+                console.error('Error sending identify:', error);
                 reject(error);
             }
         });

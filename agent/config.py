@@ -31,5 +31,5 @@ AVATAR_TYPE = os.getenv("AVATAR_TYPE", "web")  # "dummy" or "web"
 # Web Avatar
 WEB_AVATAR_HOST = os.getenv("WEB_AVATAR_HOST", "localhost")
 WEB_AVATAR_PORT = int(os.getenv("WEB_AVATAR_PORT", "8000"))
-WEBSOCKET_HOST = os.getenv("WEBSOCKET_HOST", "localhost")
+WEBSOCKET_CONNECT_HOST = os.getenv("WEBSOCKET_CONNECT_HOST", "localhost")
 WEBSOCKET_PORT = int(os.getenv("WEBSOCKET_PORT", "8765"))

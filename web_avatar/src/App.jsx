@@ -153,7 +153,7 @@ export default function App() {
           <h3>Agent State</h3>
           <AgentStateIndicator wsClient={wsClientRef.current} />
           <div className="divider" />
-          <AudioPlayer ws={wsClientRef.current?.ws} isConnected={wsStatus === 'connected'} />
+          <AudioPlayer wsClient={wsClientRef.current} isConnected={wsStatus === 'connected'} />
           <div className="divider" />
           <AvatarSync ws={wsClientRef.current?.ws} isConnected={wsStatus === 'connected'} vrm={vrm} />
           <div className="divider" />

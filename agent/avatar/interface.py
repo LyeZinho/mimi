@@ -119,7 +119,9 @@ class WebAvatar(AvatarInterface):
             self.ws = await websockets.connect(uri)
             self.connected = True
             logger.info("Conectado ao backend WebAvatar")
-
+            
+            await self.send_identify()
+            
             self.listen_task = asyncio.create_task(self._listen_loop())
             await asyncio.sleep(0.01)
             logger.info(f"[CONNECT] Listen task started: {self.listen_task.get_name()}")
@@ -127,6 +129,19 @@ class WebAvatar(AvatarInterface):
         except Exception as e:
             logger.error(f"Falha ao conectar ao backend: {e}")
             self.connected = False
+
+    async def send_identify(self) -> None:
+        """Sends identify message to establish agent role."""
+        try:
+            identify_msg = {
+                "type": "identify",
+                "role": "agent"
+            }
+            await self.ws.send(json.dumps(identify_msg))
+            logger.info("Agent identified to server")
+        except Exception as e:
+            logger.error(f"Failed to send identify: {e}")
+            raise
 
     async def disconnect(self) -> None:
         if self.ws:
@@ -146,49 +161,12 @@ class WebAvatar(AvatarInterface):
                     data = json.loads(message)
                     msg_type = data.get("type")
                     logger.info(f"[LISTEN] Message received: type={msg_type}")
-                    print(f"[LISTEN] Message received: type={msg_type}")
-
-                    # If bridge callback is set, delegate to it
+                    
                     if self.message_callback:
                         logger.info(f"[LISTEN] Calling message_callback for type={msg_type}")
                         await self.message_callback(data)
-                        continue
-
-                    if msg_type == "set_model":
-                        model_name = data.get("model")
-                        if model_name:
-                            logger.info(f"Modelo recebido: {model_name}")
-
-                    elif msg_type == "chat":
-                        text = data.get("text")
-                        logger.info(f"[LISTEN] Chat message: {text}")
-                        if text and self.agent:
-                            logger.info(f"Chat recebido: {text}")
-                            result = await self.agent.handle_input(text, source="web")
-
-                            response_text = result.get("text") or result.get("response")
-                            if response_text:
-                                await self.send_command(
-                                    {"type": "agent_response", "text": response_text}
-                                )
-                                await self.speak_start()
-
-                    elif msg_type == "agent_input":
-                        text = data.get("text")
-                        logger.info(f"[LISTEN] Agent input: {text}")
-                        if text and self.agent:
-                            logger.info(f"Input recebido do backend: {text}")
-                            result = await self.agent.handle_input(text, source="web")
-
-                            response_text = result.get("text") or result.get("response")
-                            if response_text:
-                                await self.send_command(
-                                    {"type": "agent_response", "text": response_text}
-                                )
-                                await self.speak_start()
-                        else:
-                            msg = f"[LISTEN] Skipped agent_input: {text[:50]}"
-                            logger.warning(msg)
+                    else:
+                        logger.warning(f"[LISTEN] No message_callback set, ignoring: {msg_type}")
 
                 except json.JSONDecodeError:
                     pass

@@ -5,6 +5,7 @@ Inbound: WS messages → EventBus events
 Outbound: EventBus events → WS messages via WebAvatar
 """
 
+import base64
 import logging
 from typing import Any
 
@@ -62,13 +63,17 @@ class OrchestratorBridge:
         await self.event_bus.publish(event)
         logger.info(f"Bridge published TRANSCRIPTION_COMPLETE: {text[:50]}...")
 
-    async def handle_audio_chunk(self, audio_data: list, sample_rate: int = 16000) -> None:
-        """Called when audio chunks arrive via WebSocket from browser microphone."""
+    async def handle_audio_chunk(self, audio_data: str | bytes, sample_rate: int = 16000) -> None:
+        """Called when audio chunks arrive via WebSocket from browser microphone (base64 encoded)."""
         if not audio_data:
             return
         
         try:
-            pcm_bytes = bytes(audio_data)
+            if isinstance(audio_data, str):
+                pcm_bytes = base64.b64decode(audio_data)
+            else:
+                pcm_bytes = audio_data
+            
             event = AgentEvent(
                 type=EventType.AUDIO_CHUNK,
                 source_brain="bridge",
@@ -134,7 +139,6 @@ class OrchestratorBridge:
         IMPORTANT: Only forward chunks from output_brain (TTS synthesis).
         Skip chunks from bridge/input_brain (microphone input) to prevent echo loop.
         """
-        # Only forward TTS-generated audio, not microphone input
         if event.source_brain != "output_brain":
             return
         
@@ -147,12 +151,13 @@ class OrchestratorBridge:
         
         logger.info(f"Bridge forwarding TTS AUDIO_CHUNK #{chunk_index}: {len(audio_bytes)} bytes")
         
-        audio_hex = audio_bytes.hex()
+        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
         
         await self.avatar.send_command({
             "type": "audio_chunk",
-            "data": audio_hex,
+            "data": audio_base64,
             "sample_rate": 22050,
+            "source": "tts",
             "chunk_index": chunk_index,
             "timestamp": event.payload.get("timestamp", 0),
         })

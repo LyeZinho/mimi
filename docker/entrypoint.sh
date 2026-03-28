@@ -25,10 +25,16 @@ WS_PID=$!
 sleep 2
 echo -e "${GREEN}✓ WebSocket Server running (PID: $WS_PID)${NC}"
 
-# Start Python Agent
+# Start Python Agent with auto-restart
 echo -e "${BLUE}🤖 Starting Python Agent...${NC}"
 cd /app
-PYTHONPATH=/app python agent/main.py > /tmp/agent_output.log 2>&1 &
+(
+  while true; do
+    PYTHONPATH=/app python agent/main.py > /tmp/agent_output.log 2>&1
+    echo -e "${BLUE}Agent exited, restarting in 3s...${NC}"
+    sleep 3
+  done
+) &
 AGENT_PID=$!
 sleep 8
 echo -e "${GREEN}✓ Python Agent running (PID: $AGENT_PID)${NC}"

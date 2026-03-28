@@ -6,6 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const PORT = 8765;
+const BIND_HOST = process.env.WEBSOCKET_BIND_HOST || 'localhost';
 
 // Estado global do avatar
 let avatarState = {
@@ -258,11 +259,28 @@ const server = http.createServer(async (req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-wss.on('connection', (ws) => {
-  console.log('Cliente conectado');
-  ws.send(JSON.stringify({ type: 'state', state: avatarState }));
-  ws.send(JSON.stringify({ type: 'llm_config', config: llmConfig }));
+// Client tracking: separate sets for agent vs browsers
+const agentClients = new Set();
+const browserClients = new Set();
 
+// Client identity cache
+const clientIdentity = new WeakMap();
+
+wss.on('connection', (ws) => {
+  console.log('Cliente conectado - aguardando identify...');
+  
+  // Don't send state/config yet - wait for identify
+  let identified = false;
+  let identifyTimeout;
+  
+  // Set timeout for identify message (5 seconds)
+  identifyTimeout = setTimeout(() => {
+    if (!identified && ws.readyState === WebSocket.OPEN) {
+      console.warn('Client did not identify within 5s, closing');
+      ws.close(1002, 'Client must send identify message');
+    }
+  }, 5000);
+  
   ws.on('message', async (data) => {
     let msg;
     try {
@@ -271,8 +289,71 @@ wss.on('connection', (ws) => {
       console.error('Mensagem inválida:', data);
       return;
     }
+    
+    // Handle identify message first (before anything else)
+    if (msg.type === 'identify' && !identified) {
+      identified = true;
+      clearTimeout(identifyTimeout);
+      
+      const role = msg.role || 'browser';
+      clientIdentity.set(ws, { role, client_id: msg.client_id });
+      
+      if (role === 'agent') {
+        agentClients.add(ws);
+        console.log(`✓ Agent client identified (${agentClients.size} agent(s) connected)`);
+      } else {
+        browserClients.add(ws);
+        console.log(`✓ Browser client identified: ${msg.client_id} (${browserClients.size} browser(s) connected)`);
+      }
+      
+      // Send state/config only after identification
+      ws.send(JSON.stringify({ type: 'state', state: avatarState }));
+      ws.send(JSON.stringify({ type: 'llm_config', config: llmConfig }));
+      
+      // Notify all browsers that agent status changed
+      if (role === 'agent') {
+        const statusMsg = JSON.stringify({ 
+          type: 'agent_status', 
+          status: 'connected',
+          timestamp: Date.now()
+        });
+        browserClients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(statusMsg);
+          }
+        });
+      }
+      
+      return; // Skip normal message handling for identify
+    }
+    
+    // Reject non-identify messages from unidentified clients
+    if (!identified) {
+      console.warn('Received message from unidentified client:', msg.type);
+      return;
+    }
 
-    // Manipulação de comandos
+    const identity = clientIdentity.get(ws);
+    const clientRole = identity?.role || 'unknown';
+    
+    // Get identity for targeted routing
+    function sendToAgentClients(message) {
+      agentClients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
+    }
+    
+    function sendToBrowserClients(message, exceptClient = null) {
+      browserClients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN && client !== exceptClient) {
+          client.send(message);
+        }
+      });
+    }
+
+    // Manipulação de comandos - routed by type and sender role
     switch (msg.type) {
       case 'set_model':
         if (msg.model) {
@@ -320,76 +401,78 @@ wss.on('connection', (ws) => {
           broadcastState(ws); // não ecoa para quem enviou
         }
         break;
-      case 'chat': // Forward to Agent
-        if (msg.text || msg.message) {
-          // Broadcast to all clients (Agent should pick this up)
+      case 'chat': // From browser → send to agent only
+        if (clientRole === 'browser' && (msg.text || msg.message)) {
           const text = msg.text || msg.message;
-          console.log(`Chat forwarding: ${text}`);
-          broadcastState(ws); // Broadcasts state, but we need to broadcast the EVENT
-
-          // Manual broadcast of the chat event
-          const chatMsg = JSON.stringify({ type: 'agent_input', text: text, sender: 'user' });
-          let broadcastCount = 0;
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN && client !== ws) {
-              console.log(`[BROADCAST] Sending agent_input to client`);
-              client.send(chatMsg);
-              broadcastCount++;
-            }
-          });
-          console.log(`[BROADCAST] Forwarded to ${broadcastCount} clients`);
+          console.log(`[ROUTING] chat from browser: "${text}" → agent`);
+          const chatMsg = JSON.stringify({ type: 'agent_input', text, sender: 'user', timestamp: Date.now() });
+          sendToAgentClients(chatMsg);
         }
         break;
 
-      case 'audio_chunk': // Forward audio to Agent for VAD+STT
-        if (msg.data && msg.sample_rate) {
-          console.log(`[Server] Received audio_chunk: ${msg.data.length} bytes @ ${msg.sample_rate}Hz`);
-          console.log(`[Server] Total connected clients: ${wss.clients.size}`);
+      case 'audio_chunk': // From browser → send to agent only
+        if (clientRole === 'browser' && msg.data && msg.sample_rate) {
+          console.log(`[ROUTING] audio_chunk from browser (${msg.data.length} bytes) → agent`);
           const audioMsg = JSON.stringify({
             type: 'audio_chunk',
             data: msg.data,
-            sample_rate: msg.sample_rate
+            sample_rate: msg.sample_rate,
+            timestamp: Date.now()
           });
-          let sentCount = 0;
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN && client !== ws) {
-              client.send(audioMsg);
-              sentCount++;
-            }
-          });
-          console.log(`[Server] Forwarded audio_chunk to ${sentCount} agent client(s)`);
+          sendToAgentClients(audioMsg);
         }
         break;
 
-      case 'agent_response': // Response from Agent
-        broadcastState();
-        const responseMsg = JSON.stringify({
-          type: 'chat_response',
-          text: msg.text,
-          sender: 'Mimi'
-        });
-        wss.clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(responseMsg);
-          }
-        });
+      case 'agent_response': // From agent → send to browsers only
+        if (clientRole === 'agent' && msg.text) {
+          console.log(`[ROUTING] agent_response "${msg.text}" → all browsers`);
+          const responseMsg = JSON.stringify({
+            type: 'chat_response',
+            text: msg.text,
+            sender: 'Mimi',
+            timestamp: Date.now()
+          });
+          sendToBrowserClients(responseMsg);
+        }
         break;
 
-      case 'processing_update': // Processing stage updates from Agent
-        const processingMsg = JSON.stringify({
-          type: 'processing_update',
-          stage: msg.stage,
-          text: msg.text,
-          intent: msg.intent,
-          plan: msg.plan,
-          sentiment: msg.sentiment,
-          emotion: msg.emotion
-        });
-        wss.clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(processingMsg);
-          }
-        });
+      case 'processing_update': // From agent → send to browsers only
+        if (clientRole === 'agent') {
+          console.log(`[ROUTING] processing_update (${msg.stage || 'unknown'}) → all browsers`);
+          const processingMsg = JSON.stringify({
+            type: 'processing_update',
+            stage: msg.stage,
+            text: msg.text,
+            intent: msg.intent,
+            plan: msg.plan,
+            sentiment: msg.sentiment,
+            emotion: msg.emotion,
+            timestamp: Date.now()
+          });
+          sendToBrowserClients(processingMsg);
+        }
+        break;
+
+      case 'audio_chunk': // From agent (TTS output) → send to browsers only
+        if (clientRole === 'agent' && msg.data && msg.source === 'tts') {
+          console.log(`[ROUTING] audio_chunk from agent/TTS (${msg.data.length} bytes) → all browsers`);
+          const audioMsg = JSON.stringify({
+            type: 'audio_chunk',
+            data: msg.data,
+            sample_rate: msg.sample_rate || 22050,
+            source: 'tts',
+            timestamp: Date.now()
+          });
+          sendToBrowserClients(audioMsg);
+        }
+        break;
+
+      case 'avatar_control': // From agent → send to browsers only
+        if (clientRole === 'agent') {
+          console.log(`[ROUTING] avatar_control (${msg.emotion || msg.gesture}) → all browsers`);
+          msg.timestamp = Date.now();
+          sendToBrowserClients(JSON.stringify(msg));
+        }
         break;
 
       case 'agent_input':
@@ -520,10 +603,41 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log('Cliente desconectado');
+    const identity = clientIdentity.get(ws);
+    const role = identity?.role || 'unknown';
+    
+    if (role === 'agent') {
+      agentClients.delete(ws);
+      console.log(`✗ Agent client disconnected (${agentClients.size} agent(s) connected)`);
+      
+      // Notify all browsers that agent is disconnected
+      const statusMsg = JSON.stringify({ 
+        type: 'agent_status', 
+        status: 'disconnected',
+        timestamp: Date.now()
+      });
+      browserClients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(statusMsg);
+        }
+      });
+    } else if (role === 'browser') {
+      browserClients.delete(ws);
+      console.log(`✗ Browser client disconnected: ${identity?.client_id || 'unknown'} (${browserClients.size} browser(s) connected)`);
+    } else {
+      console.log('Unknown client disconnected');
+    }
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`WebSocket/HTTP server rodando em ws://localhost:${PORT}`);
+setInterval(() => {
+  agentClients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.ping();
+    }
+  });
+}, 5000);
+
+server.listen(PORT, BIND_HOST, () => {
+  console.log(`WebSocket/HTTP server listening on ${BIND_HOST}:${PORT}`);
 });

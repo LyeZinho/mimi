@@ -12,7 +12,7 @@ from agent.bridge import OrchestratorBridge
 from agent.config import (
     AVATAR_TYPE,
     LLM_MODEL,
-    WEBSOCKET_HOST,
+    WEBSOCKET_CONNECT_HOST,
     WEBSOCKET_PORT,
 )
 from agent.core.health_check import BrainHealthCheck
@@ -33,10 +33,7 @@ OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
 def create_avatar() -> DummyAvatar | WebAvatar:
     """Create avatar instance based on config."""
     if AVATAR_TYPE == "web":
-        # For WebSocket client connections, use localhost instead of 0.0.0.0
-        # (0.0.0.0 is only valid for server listening, not client connections)
-        client_host = "localhost" if WEBSOCKET_HOST == "0.0.0.0" else WEBSOCKET_HOST
-        return WebAvatar(host=client_host, port=WEBSOCKET_PORT)
+        return WebAvatar(host=WEBSOCKET_CONNECT_HOST, port=WEBSOCKET_PORT)
     else:
         return DummyAvatar()
 

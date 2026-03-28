@@ -68,24 +68,26 @@ export default function VoiceInput({ wsClient }) {
            }
          }
 
-         if (pcmBuffer.length >= 1024) {
-           if (wsClient && wsClient.isConnected()) {
-             const sent = wsClient.send({
-               type: 'audio_chunk',
-               data: pcmBuffer,
-               sample_rate: targetSampleRate,
-             });
-             if (sent) {
-               chunkCount++;
-               if (chunkCount % 10 === 0) {
-                 console.log(`[VoiceInput] Sent ${chunkCount} audio chunks`);
-               }
-             }
-           } else {
-             console.warn('[VoiceInput] WebSocket not connected, cannot send audio');
-           }
-           pcmBuffer = [];
-         }
+          if (pcmBuffer.length >= 1024) {
+            if (wsClient && wsClient.isConnected()) {
+              const uint8Array = new Uint8Array(pcmBuffer);
+              const base64Data = btoa(String.fromCharCode.apply(null, uint8Array));
+              const sent = wsClient.send({
+                type: 'audio_chunk',
+                data: base64Data,
+                sample_rate: targetSampleRate,
+              });
+              if (sent) {
+                chunkCount++;
+                if (chunkCount % 10 === 0) {
+                  console.log(`[VoiceInput] Sent ${chunkCount} audio chunks`);
+                }
+              }
+            } else {
+              console.warn('[VoiceInput] WebSocket not connected, cannot send audio');
+            }
+            pcmBuffer = [];
+          }
        };
 
       setIsRecording(true);

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import styles from './AudioPlayer.module.css';
 
-export const AudioPlayer = ({ ws, isConnected }) => {
+export const AudioPlayer = ({ wsClient, isConnected }) => {
   const {
     isPlaying,
     bufferedSeconds,
@@ -16,12 +16,10 @@ export const AudioPlayer = ({ ws, isConnected }) => {
   const [isResponseComplete, setIsResponseComplete] = useState(false);
   
   useEffect(() => {
-    if (!ws || !isConnected) return;
+    if (!wsClient || !isConnected) return;
     
-    const handleMessage = (event) => {
+    const unsubscribe = wsClient.onMessage((message) => {
       try {
-        const message = JSON.parse(event.data);
-        
         if (message.type === 'audio_chunk') {
           addAudioChunk(message.data, message.sample_rate || 22050);
           setChunkCount(prev => prev + 1);
@@ -39,16 +37,14 @@ export const AudioPlayer = ({ ws, isConnected }) => {
           }
         }
       } catch (error) {
-        console.error('Failed to process WebSocket message:', error);
+        console.error('Failed to process audio message:', error);
       }
-    };
-    
-    ws.addEventListener('message', handleMessage);
+    });
     
     return () => {
-      ws.removeEventListener('message', handleMessage);
+      unsubscribe();
     };
-  }, [ws, isConnected, isPlaying, chunkCount, addAudioChunk, startPlayback, clearBuffer]);
+  }, [wsClient, isConnected, isPlaying, chunkCount, addAudioChunk, startPlayback, clearBuffer]);
   
   return (
     <div className={styles['audio-player']}>

@@ -15,9 +15,13 @@ export const useAudioPlayer = () => {
     return audioContextRef.current;
   }, []);
   
-  const addAudioChunk = useCallback((hexData, sampleRate = 22050) => {
+  const addAudioChunk = useCallback((base64Data, sampleRate = 22050) => {
     try {
-      const byteArray = new Uint8Array(Buffer.from(hexData, 'hex'));
+      const binaryString = atob(base64Data);
+      const byteArray = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        byteArray[i] = binaryString.charCodeAt(i);
+      }
       
       const audioContext = initAudioContext();
       const float32Array = new Float32Array(byteArray.length / 2);
