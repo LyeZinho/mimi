@@ -43,6 +43,7 @@ class AgentOrchestrator:
         session_id: str | None = None,
         tts_provider: TTSProvider | None = None,
         llm_provider: LLMProvider | None = None,
+        sentiment_engine=None,
     ):
         self.user_id = user_id
         self.session_id = session_id or f"session_{int(time.time())}"
@@ -54,6 +55,7 @@ class AgentOrchestrator:
         # Store TTS and LLM providers for dependency injection
         self.tts_provider = tts_provider
         self.llm_provider = llm_provider
+        self.sentiment_engine = sentiment_engine
 
         # === 3-BRAIN PIPELINE (Week 1-3A) ===
         # Initialization order: Input → Reasoning → Output
@@ -73,7 +75,7 @@ class AgentOrchestrator:
                 from agent.output.config import PiperConfig
                 from agent.output.piper_provider import PiperProvider
 
-                config = PiperConfig(provider="piper", model="pt_PT")
+                config = PiperConfig(provider="piper", model="pt_BR")
                 self.tts_provider = PiperProvider(config)
             except Exception as e:
                 logger.warning(f"Could not initialize default TTS provider: {e}")
@@ -93,7 +95,12 @@ class AgentOrchestrator:
         # Remaining brains (exposed as attributes for health check and API access)
         self.planning_brain = PlanningBrain("planning_brain", self.event_bus, self.shared_state)
         self.execution_brain = ExecutionBrain("execution_brain", self.event_bus, self.shared_state)
-        self.sentiment_brain = SentimentBrain("sentiment_brain", self.event_bus, self.shared_state)
+        self.sentiment_brain = SentimentBrain(
+            "sentiment_brain",
+            self.event_bus,
+            self.shared_state,
+            sentiment_engine=self.sentiment_engine,
+        )
         self.avatar_brain = AvatarBrain("avatar_brain", self.event_bus, self.shared_state)
 
         # 7 Brains (full system)
@@ -117,6 +124,15 @@ class AgentOrchestrator:
 
         await self.shared_state.initialize(self.user_id, self.session_id)
         await self.event_bus.start()
+        
+        # Initialize sentiment engine if available
+        if self.sentiment_engine and hasattr(self.sentiment_engine, 'initialize'):
+            try:
+                await self.sentiment_engine.initialize()
+                logger.info("BertSentimentEngine initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize BertSentimentEngine: {e}")
+                self.sentiment_engine = None
 
         for brain in self.brains:
             await brain.initialize()
