@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
+import styles from './AudioPlayer.module.css';
 
 export const AudioPlayer = ({ ws, isConnected }) => {
   const {
@@ -50,15 +51,15 @@ export const AudioPlayer = ({ ws, isConnected }) => {
   }, [ws, isConnected, isPlaying, chunkCount, addAudioChunk, startPlayback, clearBuffer]);
   
   return (
-    <div className="audio-player">
-      <div className="audio-status">
+    <div className={styles['audio-player']}>
+      <div className={styles['audio-status']}>
         <span>🎵 Audio: {isPlaying ? '▶️ Playing' : chunkCount > 0 ? '⏸️ Buffered' : '⏹️ Idle'}</span>
         <span>Chunks: {chunkCount}</span>
         <span>Buffered: {bufferedSeconds.toFixed(1)}s</span>
         {isResponseComplete && <span>✓ Complete</span>}
       </div>
       
-      <div className="audio-controls">
+      <div className={styles['audio-controls']}>
         {chunkCount > 0 && !isPlaying && (
           <button onClick={startPlayback}>Play</button>
         )}

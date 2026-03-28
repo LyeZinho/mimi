@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import styles from './AvatarSync.module.css';
 
 const PHONEME_TO_BLEND_SHAPE = {
   'a': 'A',
@@ -99,8 +100,8 @@ export const AvatarSync = ({ ws, isConnected, vrm }) => {
   }, [vrm]);
   
   return (
-    <div className="avatar-sync">
-      <div className="sync-status">
+    <div className={styles['avatar-sync']}>
+      <div className={styles['sync-status']}>
         {currentPhoneme ? (
           <span>🎤 Phoneme: <strong>{currentPhoneme}</strong></span>
         ) : (

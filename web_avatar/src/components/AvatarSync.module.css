@@ -1,0 +1,25 @@
+.avatar-sync {
+  padding: 1rem;
+  background: rgba(150, 200, 100, 0.1);
+  border-radius: 8px;
+  margin: 0.5rem 0;
+}
+
+.sync-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.sync-status span {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sync-status strong {
+  color: #2ecc71;
+  font-weight: bold;
+}
