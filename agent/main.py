@@ -111,6 +111,8 @@ async def main() -> None:
                 audio_data = data.get("data")
                 sample_rate = data.get("sample_rate", 16000)
                 if audio_data:
+                    print(f"[Bridge] Received audio_chunk: {len(audio_data)} bytes @ {sample_rate}Hz")
+                    logger.info(f"[Bridge] Received audio_chunk: {len(audio_data)} bytes @ {sample_rate}Hz")
                     await bridge.handle_audio_chunk(audio_data, sample_rate)
             elif msg_type == "state":
                 pass
