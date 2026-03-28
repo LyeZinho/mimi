@@ -43,44 +43,10 @@ class InputBrain(Brain):
         logger.info(f"[{self.brain_id}] VAD and STT initialized, subscribed to AUDIO_CHUNK events")
 
     async def process(self) -> None:
-        """Processa áudio: captura via sounddevice, VAD, STT."""
-        try:
-            import sounddevice as sd
-        except ImportError:
-            logger.warning(
-                f"[{self.brain_id}] sounddevice not available, audio capture disabled"
-            )
-            while self._running:
-                await asyncio.sleep(1.0)
-            return
-
-        logger.info(f"[{self.brain_id}] Starting audio capture loop")
-        sample_rate = 16000
-        frame_size = int(sample_rate * 0.02)  # 20ms frames
-
-        try:
-            stream = sd.InputStream(
-                samplerate=sample_rate,
-                channels=1,
-                dtype="int16",
-                blocksize=frame_size,
-            )
-            stream.start()
-
-            while self._running:
-                data, overflowed = stream.read(frame_size)
-                if overflowed:
-                    logger.warning("Audio buffer overflow")
-
-                audio_bytes = data.tobytes()
-                await self.handle_audio_frame(audio_bytes)
-
-            stream.stop()
-            stream.close()
-        except Exception as e:
-            logger.error(f"[{self.brain_id}] Audio capture error: {e}")
-            while self._running:
-                await asyncio.sleep(1.0)
+        """Voice-only architecture: audio comes via WebSocket, not sounddevice."""
+        logger.info(f"[{self.brain_id}] Voice-only mode: listening for AUDIO_CHUNK events from WebSocket")
+        while self._running:
+            await asyncio.sleep(1.0)
 
     async def handle_audio_frame(self, data: bytes) -> None:
         """
@@ -114,6 +80,7 @@ class InputBrain(Brain):
             if vad_result and not self.is_listening:
                 # Início de fala detectado
                 self.is_listening = True
+                logger.info(f"[{self.brain_id}] VAD: Speech detected, starting recording")
                 await self.publish_event(
                     EventType.VAD_START, {"timestamp": time.time()}
                 )
@@ -122,11 +89,10 @@ class InputBrain(Brain):
             elif not vad_result and self.is_listening:
                 # Fim de fala detectado
                 self.is_listening = False
+                logger.info(f"[{self.brain_id}] VAD: Speech ended, running STT")
                 await self.publish_event(EventType.VAD_END, {"timestamp": time.time()})
 
-                # Inicia STT
-                if self.current_transcript:
-                    await self._run_stt(ring_snapshot)
+                await self._run_stt(ring_snapshot)
 
             latency = (time.time() - start_time) * 1000
             await self.record_event(success=True, latency_ms=latency)
@@ -144,6 +110,7 @@ class InputBrain(Brain):
             if not audio_bytes:
                 return
             
+            logger.debug(f"[{self.brain_id}] Received audio chunk: {len(audio_bytes)} bytes @ {sample_rate}Hz")
             await self.handle_audio_frame(audio_bytes)
         except Exception as e:
             logger.error(f"Error processing audio chunk from bridge: {e}", exc_info=True)
