@@ -38,6 +38,8 @@ class OutputBrain(Brain):
         """Quando resposta está pronta, converte para áudio."""
         response_text = event.payload.get("response", "")
         
+        logger.info(f"[{self.brain_id}] _on_response_ready called with: {response_text[:50]}...")
+        
         if not response_text or not response_text.strip():
             logger.warning("Empty response text received")
             return
@@ -45,7 +47,9 @@ class OutputBrain(Brain):
         start_time = time.time()
         
         try:
+            logger.info(f"[{self.brain_id}] About to synthesize...")
             await self._synthesize_and_stream(response_text)
+            logger.info(f"[{self.brain_id}] Synthesis completed successfully")
             
             latency = (time.time() - start_time) * 1000
             self.synthesis_latencies.append(latency)
