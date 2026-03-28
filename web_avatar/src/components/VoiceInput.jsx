@@ -46,49 +46,47 @@ export default function VoiceInput({ wsClient }) {
       source.connect(processor);
       processor.connect(audioContext.destination);
 
-      const targetSampleRate = 16000;
-      const resampleRatio = audioContext.sampleRate / targetSampleRate;
-      let resampleBuffer = [];
-      let pcmBuffer = [];
-      let chunkCount = 0;
+       const targetSampleRate = 16000;
+       const resampleRatio = audioContext.sampleRate / targetSampleRate;
+       let resampleBuffer = [];
+       let pcmBuffer = [];
+       let chunkCount = 0;
 
-      processor.onaudioprocess = (event) => {
-        const inputData = event.inputBuffer.getChannelData(0);
+       processor.onaudioprocess = (event) => {
+         const inputData = event.inputBuffer.getChannelData(0);
 
-        for (let i = 0; i < inputData.length; i++) {
-          resampleBuffer.push(inputData[i]);
+         for (let i = 0; i < inputData.length; i++) {
+           resampleBuffer.push(inputData[i]);
 
-          if (resampleBuffer.length >= resampleRatio) {
-            const sample = resampleBuffer.reduce((a, b) => a + b) / resampleBuffer.length;
-            const pcm16 = Math.max(-1, Math.min(1, sample)) * 0x7FFF;
+           if (resampleBuffer.length >= resampleRatio) {
+             const sample = resampleBuffer.reduce((a, b) => a + b) / resampleBuffer.length;
+             const pcm16 = Math.max(-32768, Math.min(32767, sample * 32767));
 
-            const byte1 = pcm16 & 0xff;
-            const byte2 = (pcm16 >> 8) & 0xff;
-            
-            pcmBuffer.push(byte1, byte2);
-            resampleBuffer = [];
-          }
-        }
+             pcmBuffer.push(pcm16 & 0xFF);
+             pcmBuffer.push((pcm16 >> 8) & 0xFF);
+             resampleBuffer = [];
+           }
+         }
 
-        if (pcmBuffer.length >= 1024) {
-          if (wsClient && wsClient.isConnected()) {
-            const sent = wsClient.send({
-              type: 'audio_chunk',
-              data: pcmBuffer,
-              sample_rate: targetSampleRate,
-            });
-            if (sent) {
-              chunkCount++;
-              if (chunkCount % 10 === 0) {
-                console.log(`[VoiceInput] Sent ${chunkCount} audio chunks`);
-              }
-            }
-          } else {
-            console.warn('[VoiceInput] WebSocket not connected, cannot send audio');
-          }
-          pcmBuffer = [];
-        }
-      };
+         if (pcmBuffer.length >= 1024) {
+           if (wsClient && wsClient.isConnected()) {
+             const sent = wsClient.send({
+               type: 'audio_chunk',
+               data: pcmBuffer,
+               sample_rate: targetSampleRate,
+             });
+             if (sent) {
+               chunkCount++;
+               if (chunkCount % 10 === 0) {
+                 console.log(`[VoiceInput] Sent ${chunkCount} audio chunks`);
+               }
+             }
+           } else {
+             console.warn('[VoiceInput] WebSocket not connected, cannot send audio');
+           }
+           pcmBuffer = [];
+         }
+       };
 
       setIsRecording(true);
       console.log('[VoiceInput] Recording started, WebSocket connected:', wsClient?.isConnected());

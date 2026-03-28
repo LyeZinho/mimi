@@ -257,12 +257,12 @@ class BufferManager:
     """
     
     def __init__(self,
-                 ring_buffer_duration_sec: float = 3.0,
+                 ring_buffer_duration_sec: float = 10.0,
                  chunk_queue_max_size: int = 100,
                  sample_rate: int = 16000):
         self.sample_rate = sample_rate
         
-        # Ring buffer: 3 segundos de histórico
+        # Ring buffer: 10 segundos de histórico (increased from 3s to handle slower consumers)
         bytes_per_sample = 2  # 16-bit mono
         ring_capacity = int(ring_buffer_duration_sec * sample_rate * bytes_per_sample)
         self.ring_buffer = RingBuffer(ring_capacity, sample_rate)

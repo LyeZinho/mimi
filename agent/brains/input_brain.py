@@ -145,6 +145,8 @@ class InputBrain(Brain):
                     "language": result["language"],
                 },
             )
+            
+            await self.buffer_manager.ring_buffer.clear()
         except Exception as e:
             logger.error(f"STT error: {e}")
             await self.publish_event(
