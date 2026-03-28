@@ -344,6 +344,7 @@ wss.on('connection', (ws) => {
       case 'audio_chunk': // Forward audio to Agent for VAD+STT
         if (msg.data && msg.sample_rate) {
           console.log(`[Server] Received audio_chunk: ${msg.data.length} bytes @ ${msg.sample_rate}Hz`);
+          console.log(`[Server] Total connected clients: ${wss.clients.size}`);
           const audioMsg = JSON.stringify({
             type: 'audio_chunk',
             data: msg.data,
