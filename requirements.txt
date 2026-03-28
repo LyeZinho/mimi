@@ -18,8 +18,8 @@ faster-whisper>=0.9
 opencv-python>=4.8.0
 mediapipe>=0.10.0
 
-# TTS (opcional)
-# piper-tts>=1.0
+# TTS (obrigatório para OutputBrain)
+piper-tts>=1.0
 # coqui-tts>=0.20
 
 # Dependências de Áudio (required by numpy/faster-whisper)
