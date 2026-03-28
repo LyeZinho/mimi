@@ -36,6 +36,47 @@
 
 ---
 
+## 🧠 BERT Sentiment Analysis (NOVO!)
+
+Integração de modelo FinBERT-PT-BR para análise de sentimento sofisticada.
+
+### 📚 Documentação BERT
+- **[BERT_DOCS_INDEX.md](BERT_DOCS_INDEX.md)** ← **COMECE AQUI** para BERT 📍
+  - Mapa completo da documentação BERT
+  - Guia "por onde começar" conforme seu cenário
+
+### Guias Específicos
+- **[BERT_SENTIMENT_INTEGRATION.md](BERT_SENTIMENT_INTEGRATION.md)** - Arquitetura e detalhes técnicos
+- **[BERT_QUICKSTART.md](BERT_QUICKSTART.md)** - Teste e setup rápido
+- **[BERT_API_REFERENCE.md](BERT_API_REFERENCE.md)** - Referência de API detalhada
+- **[BERT_FAQ_MIGRATION.md](BERT_FAQ_MIGRATION.md)** - FAQ, troubleshooting e migration
+
+### Resumo Rápido
+- **Modelo**: FinBERT-PT-BR (1.4M textos financeiros portugueses)
+- **Acurácia**: ~89% (vs ~70% keyword matching)
+- **Latência**: 100-200ms (CPU), 20-50ms (GPU)
+- **Status**: ✅ Produção
+- **Fallback**: Automático para lexical se falha
+
+---
+
+## 🔊 TTS Voice Synthesis (NOVO!)
+
+Integração de Piper TTS para síntese de voz offline com suporte a português.
+
+### 📚 Documentação TTS
+- **[TTS_IMPLEMENTATION.md](TTS_IMPLEMENTATION.md)** - Arquitetura, fix crítico e detalhes técnicos
+- **[TTS_QUICKSTART.md](TTS_QUICKSTART.md)** - Teste, debug e guia rápido
+
+### Resumo Rápido
+- **Motor**: Piper TTS (pt_PT)
+- **Tipo**: Offline-first, streaming
+- **Latência**: 200-500ms (primeira parte), 1-5ms (chunks)
+- **Status**: ✅ Fixo e testado (6/6 testes passando)
+- **Bug Corrigido**: AsyncIterator handling em OutputBrain
+
+---
+
 ## 📋 Planos & Implementação
 
 ### Phase 1: Enhanced Debug Panel (EM PLANEJAMENTO) 🔄
