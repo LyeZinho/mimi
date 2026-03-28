@@ -6,6 +6,8 @@ import VoiceInput from './components/VoiceInput';
 import DebugPanel from './components/DebugPanel';
 import ProcessingCards from './components/ProcessingCards';
 import AgentStateIndicator from './components/AgentStateIndicator';
+import AudioPlayer from './components/AudioPlayer';
+import AvatarSync from './components/AvatarSync';
 import { WebSocketClient } from './logic/WebSocketClient';
 import { AvatarStateManager } from './logic/AvatarStateManager';
 import './style.css';
@@ -17,6 +19,7 @@ export default function App() {
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [isObsMode, setIsObsMode] = useState(false);
   const [frameStats, setFrameStats] = useState({ frameCount: 0, fps: 0, lastFrameTime: 0 });
+  const [vrm, setVrm] = useState(null);
 
   const wsClientRef = useRef(null);
   const stateManagerRef = useRef(null);
@@ -80,6 +83,7 @@ export default function App() {
 
   const handleViewerReady = (viewer) => {
     viewerRef.current = viewer;
+    setVrm(viewer);
     if (viewer && viewer.animationManager) {
       viewer.animationManager.loadAnimation('Idle', '/animations/Idle.fbx')
         .then(() => {
@@ -148,6 +152,10 @@ export default function App() {
         <aside className="sidebar right-sidebar">
           <h3>Agent State</h3>
           <AgentStateIndicator wsClient={wsClientRef.current} />
+          <div className="divider" />
+          <AudioPlayer ws={wsClientRef.current?.ws} isConnected={wsStatus === 'connected'} />
+          <div className="divider" />
+          <AvatarSync ws={wsClientRef.current?.ws} isConnected={wsStatus === 'connected'} vrm={vrm} />
           <div className="divider" />
           <DebugPanel wsClient={wsClientRef.current} frameStats={frameStats} />
         </aside>
