@@ -85,6 +85,20 @@ class OutputBrain(Brain):
                 
                 chunk_index += 1
             
+            # Publish phoneme data for avatar sync
+            if hasattr(self.tts_provider, '_last_phonemes'):
+                phonemes = self.tts_provider._last_phonemes
+                sample_positions = getattr(self.tts_provider, '_last_phoneme_samples', [])
+                
+                if phonemes:
+                    await self.publish_event(EventType.PHONEME_DATA, {
+                        "text": text,
+                        "phonemes": phonemes,
+                        "sample_positions": sample_positions,
+                        "timestamp": time.time(),
+                        "sample_rate": 22050,
+                    })
+            
             synthesis_duration_ms = (time.time() - start_synthesis) * 1000
             full_audio = b"".join(audio_chunks)
             

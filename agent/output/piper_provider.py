@@ -38,6 +38,8 @@ class PiperProvider(TTSProvider):
         self._errors = 0
         self._audio_duration_sec = 0.0
         self._voice = None
+        self._last_phonemes = []
+        self._last_phoneme_samples = []
 
     def _load_voice(self) -> PiperVoice:
         """Lazy load the Piper voice model."""
@@ -103,10 +105,26 @@ class PiperProvider(TTSProvider):
             
             audio_chunks = []
             sample_rate = 22050
+            all_phonemes = []
+            all_sample_positions = []
+            sample_offset = 0
             
             for audio_chunk in voice.synthesize(text, syn_config):
                 audio_chunks.append(audio_chunk.audio_int16_bytes)
                 sample_rate = audio_chunk.sample_rate
+                
+                if hasattr(audio_chunk, 'phonemes'):
+                    all_phonemes.extend(audio_chunk.phonemes)
+                
+                if hasattr(audio_chunk, 'phoneme_id_samples') and audio_chunk.phoneme_id_samples is not None:
+                    all_sample_positions.extend(
+                        [int(s) + sample_offset for s in audio_chunk.phoneme_id_samples]
+                    )
+                
+                sample_offset += audio_chunk.sample_count()
+            
+            self._last_phonemes = all_phonemes
+            self._last_phoneme_samples = all_sample_positions
             
             if not audio_chunks:
                 return b""

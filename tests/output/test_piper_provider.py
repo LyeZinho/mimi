@@ -10,6 +10,12 @@ class MockAudioChunk:
     def __init__(self, audio: bytes, sample_rate: int = 22050):
         self.audio_int16_bytes = audio
         self.sample_rate = sample_rate
+        self.phonemes = []
+        self.phoneme_id_samples = None
+    
+    def sample_count(self) -> int:
+        """Calculate number of samples (16-bit PCM)."""
+        return len(self.audio_int16_bytes) // 2
 
 
 @pytest.mark.asyncio
