@@ -122,7 +122,6 @@ async def main() -> None:
         avatar.set_message_callback(on_ws_message)
 
     try:
-        # Connect WebSocket
         await avatar.connect()
         logger.info("Avatar connected")
 

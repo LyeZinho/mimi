@@ -120,8 +120,9 @@ class WebAvatar(AvatarInterface):
             self.connected = True
             logger.info("Conectado ao backend WebAvatar")
 
-            # Start listening loop
             self.listen_task = asyncio.create_task(self._listen_loop())
+            await asyncio.sleep(0.01)
+            logger.info(f"[CONNECT] Listen task started: {self.listen_task.get_name()}")
 
         except Exception as e:
             logger.error(f"Falha ao conectar ao backend: {e}")
@@ -138,15 +139,18 @@ class WebAvatar(AvatarInterface):
 
     async def _listen_loop(self):
         """Escuta mensagens do servidor."""
+        logger.info("[LISTEN] Starting listen loop...")
         try:
             async for message in self.ws:
                 try:
                     data = json.loads(message)
                     msg_type = data.get("type")
                     logger.info(f"[LISTEN] Message received: type={msg_type}")
+                    print(f"[LISTEN] Message received: type={msg_type}")
 
                     # If bridge callback is set, delegate to it
                     if self.message_callback:
+                        logger.info(f"[LISTEN] Calling message_callback for type={msg_type}")
                         await self.message_callback(data)
                         continue
 
