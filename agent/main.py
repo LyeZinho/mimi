@@ -44,7 +44,7 @@ def create_tts_provider():
         from agent.output.config import PiperConfig
         from agent.output.piper_provider import PiperProvider
 
-        config = PiperConfig(provider="piper", model="pt_PT")
+        config = PiperConfig(provider="piper", model="pt_BR")
         provider = PiperProvider(config)
         logger.info("PiperTTS provider initialized")
         return provider
@@ -74,6 +74,19 @@ def create_llm_provider():
         return None
 
 
+def create_sentiment_engine():
+    """Create BertSentimentEngine with graceful fallback."""
+    try:
+        from agent.sentiment.bert_engine import BertSentimentEngine
+        
+        engine = BertSentimentEngine(device="cpu")
+        logger.info("BertSentimentEngine created (initialization deferred to async)")
+        return engine
+    except Exception as e:
+        logger.warning(f"BertSentimentEngine not available ({e}), using fallback keyword matching")
+        return None
+
+
 async def main() -> None:
     """Initialize and run the Mimi agent with full Orchestrator."""
     print("=" * 50)
@@ -85,11 +98,13 @@ async def main() -> None:
     avatar = create_avatar()
     tts_provider = create_tts_provider()
     llm_provider = create_llm_provider()
+    sentiment_engine = create_sentiment_engine()
 
     # Create Orchestrator with all dependencies
     orchestrator = AgentOrchestrator(
         tts_provider=tts_provider,
         llm_provider=llm_provider,
+        sentiment_engine=sentiment_engine,
     )
 
     # Create Bridge (WS ↔ EventBus)
