@@ -6,6 +6,7 @@ from .output_brain import OutputBrain
 from .planning_brain import PlanningBrain
 from .reasoning_brain import ReasoningBrain
 from .sentiment_brain import SentimentBrain
+from .user_profile_brain import UserProfileBrain
 
 __all__ = [
     "InputBrain",
@@ -16,4 +17,5 @@ __all__ = [
     "AvatarBrain",
     "OutputBrain",
     "ContextBrain",
+    "UserProfileBrain",
 ]

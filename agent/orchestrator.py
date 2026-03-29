@@ -21,6 +21,7 @@ from agent.brains import (
     PlanningBrain,
     ReasoningBrain,
     SentimentBrain,
+    UserProfileBrain,
 )
 from agent.core.messaging import (
     Brain,
@@ -63,9 +64,15 @@ class AgentOrchestrator:
         # This ensures event chain flows correctly through the pipeline
         self.input_brain = InputBrain("input_brain", self.event_bus, self.shared_state)
         
-        # Initialize ContextBrain early so ReasoningBrain can reference it
+        # Initialize ContextBrain and UserProfileBrain early so ReasoningBrain can reference them
         self.context_brain = ContextBrain(
             brain_id="context_brain",
+            event_bus=self.event_bus,
+            shared_state=self.shared_state,
+        )
+        
+        self.user_profile_brain = UserProfileBrain(
+            brain_id="user_profile_brain",
             event_bus=self.event_bus,
             shared_state=self.shared_state,
         )
@@ -73,6 +80,7 @@ class AgentOrchestrator:
         self.reasoning_brain = ReasoningBrain(
             llm_provider=self.llm_provider,
             context_brain=self.context_brain,
+            user_profile_brain=self.user_profile_brain,
             brain_id="reasoning_brain",
             event_bus=self.event_bus,
             shared_state=self.shared_state,
@@ -122,6 +130,7 @@ class AgentOrchestrator:
             self.avatar_brain,
             self.output_brain,
             self.context_brain,
+            self.user_profile_brain,
         ]
 
         self._running = False

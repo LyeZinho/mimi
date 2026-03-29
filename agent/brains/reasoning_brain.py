@@ -25,10 +25,11 @@ logger = logging.getLogger(__name__)
 class ReasoningBrain(Brain):
     """Reasoning Brain: LLM inference, contexto, intenção."""
     
-    def __init__(self, llm_provider: Optional[LLMProvider] = None, context_brain=None, **kwargs):
+    def __init__(self, llm_provider: Optional[LLMProvider] = None, context_brain=None, user_profile_brain=None, **kwargs):
         super().__init__(**kwargs)
         self.llm_provider = llm_provider
         self.context_brain = context_brain
+        self.user_profile_brain = user_profile_brain
     
     async def initialize(self) -> None:
         await super().initialize()
@@ -119,10 +120,26 @@ class ReasoningBrain(Brain):
                 if context_str:
                     context_data = {"conversation_history": context_str}
             
+            user_profile_summary = None
+            if self.user_profile_brain:
+                try:
+                    profile = self.user_profile_brain.get_profile()
+                    if profile and profile.confidence > 0.3:
+                        user_profile_summary = f"""
+[User Profile]
+- Dominant mood: {profile.personality.dominant_mood}
+- Interests: {', '.join([t[0] for t in profile.interests.primary_topics[:3]])}
+- Communication style: {profile.communication.primary_intent}
+- Preferred support: {profile.support_needs.validation_preference.value}
+"""
+                except Exception as e:
+                    logger.debug(f"Could not include user profile: {e}")
+            
             prompt = PromptTemplates.response_generation_simple(
                 transcript,
                 intent.get("intent", "chat"),
                 context=context_data,
+                user_profile=user_profile_summary,
             )
             response = await self.llm_provider.generate(prompt, stream=False)
             

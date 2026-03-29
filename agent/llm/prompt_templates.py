@@ -108,13 +108,14 @@ Forneça uma resposta concisa e útil em português."""
         return prompt
 
     @staticmethod
-    def response_generation_simple(transcript: str, intent: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def response_generation_simple(transcript: str, intent: str, context: Optional[Dict[str, Any]] = None, user_profile: Optional[str] = None) -> str:
         """Generate a prompt for simple response generation with optional context.
 
         Args:
             transcript: The user's message
             intent: The detected intent
             context: Optional context dictionary with conversation history
+            user_profile: Optional user profile summary for personalization
 
         Returns:
             A formatted prompt string for response generation
@@ -122,8 +123,12 @@ Forneça uma resposta concisa e útil em português."""
         context_str = ""
         if context and context.get("conversation_history"):
             context_str = f"\n\nHistorico da conversacao:\n{context['conversation_history']}"
+        
+        profile_str = ""
+        if user_profile:
+            profile_str = f"\n{user_profile}"
 
-        prompt = f"""Voce é um assistente inteligente e amigável. Responda a seguinte mensagem do usuario.
+        prompt = f"""Voce é um assistente inteligente e amigável. Responda a seguinte mensagem do usuario.{profile_str}
 
 Mensagem do usuario: {transcript}
 Intencao detectada: {intent}{context_str}
