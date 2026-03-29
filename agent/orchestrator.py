@@ -14,6 +14,7 @@ from typing import Any
 
 from agent.brains import (
     AvatarBrain,
+    ContextBrain,
     ExecutionBrain,
     InputBrain,
     OutputBrain,
@@ -101,8 +102,13 @@ class AgentOrchestrator:
             self.shared_state,
         )
         self.avatar_brain = AvatarBrain("avatar_brain", self.event_bus, self.shared_state)
+        self.context_brain = ContextBrain(
+            brain_id="context_brain",
+            event_bus=self.event_bus,
+            shared_state=self.shared_state,
+        )
 
-        # 7 Brains (full system)
+        # 8 Brains (full system with context)
         self.brains: list[Brain] = [
             self.input_brain,
             self.reasoning_brain,
@@ -111,6 +117,7 @@ class AgentOrchestrator:
             self.sentiment_brain,
             self.avatar_brain,
             self.output_brain,
+            self.context_brain,
         ]
 
         self._running = False
