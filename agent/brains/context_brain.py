@@ -236,18 +236,14 @@ class ContextBrain(Brain):
                 "max_size": self._short_term.max_size,
             },
             "layer2_topics": {
-                "clusters": len(self._topic_manager.clusters),
+                "clusters": len(self._topic_manager._clusters),
                 "total_occurrences": sum(
-                    len(cluster.occurrences) 
-                    for cluster in self._topic_manager.clusters.values()
+                    cluster.frequency 
+                    for cluster in self._topic_manager._clusters.values()
                 ),
             },
             "layer3_chains": {
-                "states": len(self._chain_manager._states),
-                "transitions": sum(
-                    len(transitions) 
-                    for transitions in self._chain_manager._transitions.values()
-                ),
+                "transitions": len(self._chain_manager._transitions),
             },
             "layer4_long_term": {
                 "total_memories": self._long_term_memory.get_count(),
