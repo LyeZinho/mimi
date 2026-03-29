@@ -7,10 +7,12 @@ Responsável por:
 - Detectar intenção do utilizador
 - NÃO usa LLM — usa análise léxica simples
 - Eficiente: economiza tokens
+- Opcionalmente integra com ContextBrain para análise contextual
 """
 
 import asyncio
 import logging
+from typing import Optional
 
 from agent.core.messaging import Brain, EventType
 
@@ -86,8 +88,16 @@ class SentimentBrain(Brain):
         best_intent = max(scores, key=lambda x: scores[x])
         return best_intent
     
-    def _analyze_sentiment(self, text: str) -> str:
-        """Análise léxica simples de sentimento."""
+    def _analyze_sentiment(self, text: str, context: Optional[str] = None) -> str:
+        """Análise léxica simples de sentimento com suporte a contexto.
+        
+        Args:
+            text: Current user input to analyze
+            context: Previous conversation context (optional)
+        
+        Returns:
+            Sentiment label (happy, sad, neutral)
+        """
         text_lower = text.lower()
         
         positive_words = ["bom", "ótimo", "feliz", "adorar", "amar", "sim", "legal"]
@@ -97,11 +107,16 @@ class SentimentBrain(Brain):
         negative_count = sum(1 for word in negative_words if word in text_lower)
         
         if positive_count > negative_count:
-            return "happy"
+            sentiment = "happy"
         elif negative_count > positive_count:
-            return "sad"
+            sentiment = "sad"
         else:
-            return "neutral"
+            sentiment = "neutral"
+        
+        if context and "INTERESTED" in context and sentiment == "neutral":
+            sentiment = "happy"
+        
+        return sentiment
 
     async def health_check(self) -> dict:
         """Verify SentimentBrain is operational."""
