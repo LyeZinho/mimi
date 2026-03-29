@@ -8,6 +8,7 @@ import ProcessingCards from './components/ProcessingCards';
 import AgentStateIndicator from './components/AgentStateIndicator';
 import AudioPlayer from './components/AudioPlayer';
 import AvatarSync from './components/AvatarSync';
+import BrainDashboard from './components/BrainDashboard';
 import { WebSocketClient } from './logic/WebSocketClient';
 import { AvatarStateManager } from './logic/AvatarStateManager';
 import './style.css';
@@ -152,6 +153,8 @@ export default function App() {
         <aside className="sidebar right-sidebar">
           <h3>Agent State</h3>
           <AgentStateIndicator wsClient={wsClientRef.current} />
+          <div className="divider" />
+          <BrainDashboard wsClient={wsClientRef.current} />
           <div className="divider" />
           <AudioPlayer wsClient={wsClientRef.current} isConnected={wsStatus === 'connected'} />
           <div className="divider" />

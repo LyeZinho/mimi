@@ -1,0 +1,9 @@
+# Ignore extracted pose files
+*.msgpack
+*.json
+!package.json
+!.gitkeep
+
+# Keep only gitkeep in tmp/
+tmp/*
+!tmp/.gitkeep

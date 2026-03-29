@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pose Extractor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; height: 100vh; overflow: hidden; }
+    .container { display: grid; grid-template-columns: 320px 1fr 320px; height: 100vh; }
+    .panel { padding: 16px; border-right: 1px solid #333; overflow-y: auto; }
+    .panel:last-child { border-right: none; }
+    .panel h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+    label { display: block; font-size: 12px; color: #aaa; margin-bottom: 4px; margin-top: 12px; }
+    input[type="text"], input[type="number"], select { width: 100%; padding: 8px; background: #2a2a3e; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 13px; }
+    input:focus, select:focus { outline: none; border-color: #6c63ff; }
+    button { width: 100%; padding: 10px; margin-top: 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity 0.2s; }
+    button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #6c63ff; color: #fff; }
+    .btn-success { background: #4caf50; color: #fff; }
+    .btn-secondary { background: #444; color: #ddd; }
+    .btn-secondary.active { background: #6c63ff; color: #fff; }
+    .btn-small { padding: 6px 12px; font-size: 12px; margin: 4px; width: auto; display: inline-block; }
+
+    #progress-log { margin-top: 12px; background: #111; border-radius: 4px; padding: 8px; height: 180px; overflow-y: auto; font-family: monospace; font-size: 11px; line-height: 1.5; }
+    .log-info { color: #8bc34a; }
+    .log-error { color: #f44336; }
+    .log-warn { color: #ff9800; }
+
+    #preview-container { position: relative; background: #111; }
+    #preview-container canvas { width: 100%; height: 100%; display: block; }
+    .preview-overlay { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.8); padding: 8px 12px; border-radius: 6px; font-size: 12px; font-family: monospace; }
+    .preview-controls { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; background: rgba(0,0,0,0.8); padding: 8px 12px; border-radius: 8px; }
+
+    .trimmer { margin-top: 16px; background: #222; border-radius: 6px; padding: 12px; }
+    .trim-row { display: flex; gap: 8px; align-items: center; }
+    .trim-row input { flex: 1; }
+    .trim-row span { font-size: 11px; color: #888; min-width: 40px; }
+    .timeline { position: relative; height: 30px; background: #333; border-radius: 4px; margin-top: 12px; cursor: pointer; }
+    .timeline-bar { position: absolute; height: 100%; background: rgba(108,99,255,0.3); border-radius: 4px; }
+    .timeline-handle { position: absolute; width: 8px; height: 30px; background: #6c63ff; border-radius: 4px; cursor: ew-resize; top: 0; z-index: 2; }
+    .timeline-playhead { position: absolute; width: 2px; height: 100%; background: #f44; top: 0; pointer-events: none; }
+
+    .saved-list { margin-top: 12px; }
+    .saved-item { padding: 6px 8px; background: #2a2a3e; border-radius: 4px; margin-bottom: 4px; font-size: 12px; }
+    .status-bar { position: absolute; bottom: 60px; left: 12px; right: 12px; display: flex; gap: 16px; background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 6px; font-size: 11px; font-family: monospace; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/",
+      "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <!-- Panel 1: Extract -->
+    <div class="panel">
+      <h2>Extract</h2>
+      <label>Video Path</label>
+      <input type="text" id="video-path" placeholder="/absolute/path/to/video.mp4">
+      <button class="btn-secondary" id="btn-load-video">Load Video Info</button>
+
+      <div class="trimmer" id="trimmer" style="display:none">
+        <label>Trim Range (seconds)</label>
+        <div class="trim-row">
+          <input type="number" id="trim-start" value="0" min="0" step="0.1">
+          <span>to</span>
+          <input type="number" id="trim-end" value="0" min="0" step="0.1">
+        </div>
+        <div class="timeline" id="timeline">
+          <div class="timeline-bar" id="timeline-bar"></div>
+          <div class="timeline-handle" id="handle-start" style="left:0"></div>
+          <div class="timeline-handle" id="handle-end" style="right:0"></div>
+          <div class="timeline-playhead" id="playhead" style="left:0"></div>
+        </div>
+        <div style="text-align:center;margin-top:8px">
+          <button class="btn-small btn-secondary" id="btn-preview-frame">Preview Frame</button>
+          <span id="video-duration" style="color:#888;font-size:11px;margin:0 8px">--</span>
+        </div>
+      </div>
+
+      <div class="manual-setup" id="manual-setup" style="display:none">
+        <label>Manual Skeleton Setup</label>
+        <button class="btn-secondary" id="btn-manual-setup">Place Points on Video</button>
+        <button class="btn-secondary" id="btn-clear-points" style="display:none">Clear Points</button>
+        <button class="btn-primary" id="btn-track" style="display:none">Track Points</button>
+        <div id="point-status" style="font-size:11px;color:#888;margin-top:4px">0/11 points placed</div>
+        <div id="point-list" style="font-size:10px;color:#666;margin-top:4px;max-height:80px;overflow-y:auto"></div>
+      </div>
+
+      <label>Pose Name</label>
+      <input type="text" id="pose-name" placeholder="walk">
+      <label>Skip Frames</label>
+      <select id="skip-frames">
+        <option value="1">All frames (1)</option>
+        <option value="2">Every 2nd</option>
+        <option value="3">Every 3rd</option>
+        <option value="5">Every 5th</option>
+      </select>
+      <button class="btn-primary" id="btn-extract" disabled>Extract</button>
+
+      <div id="progress-log"></div>
+    </div>
+
+    <!-- Panel 2: Preview -->
+    <div id="preview-container">
+      <canvas id="vrm-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+      <canvas id="preview-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;"></canvas>
+      <div class="preview-overlay" id="preview-info">Load a video to start</div>
+      <div class="status-bar" id="status-bar">
+        <span id="status-frame">Frame: --</span>
+        <span id="status-keyframes">Keyframes: --</span>
+        <span id="status-detection">Detection: --</span>
+      </div>
+      <div class="preview-controls">
+        <button class="btn-secondary btn-small" id="btn-play">Play</button>
+        <button class="btn-secondary btn-small" id="btn-pause">Pause</button>
+        <button class="btn-secondary btn-small" id="btn-stop">Stop</button>
+      </div>
+    </div>
+
+    <!-- Panel 3: VRM Preview & Save -->
+    <div class="panel">
+      <h2>VRM Preview</h2>
+      <label>VRM Model</label>
+      <select id="vrm-select"><option>Loading...</option></select>
+      <label>VRM Path (absolute)</label>
+      <input type="text" id="vrm-path" placeholder="/home/user/model.vrm">
+      <button class="btn-secondary" id="btn-load-vrm">Load VRM</button>
+
+      <label>Extracted Pose</label>
+      <select id="pose-select"></select>
+      <button class="btn-secondary" id="btn-load-pose">Load Pose</button>
+
+      <label>Library Name</label>
+      <input type="text" id="library-name" placeholder="pose_name">
+      <button class="btn-success" id="btn-save">Save to Library</button>
+
+      <label>Saved Poses</label>
+      <div class="saved-list" id="saved-list"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

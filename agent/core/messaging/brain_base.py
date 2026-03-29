@@ -122,6 +122,10 @@ class Brain(ABC):
                     self.state = BrainState.ERROR
                     self.metrics.events_failed += 1
                     await asyncio.sleep(1.0)  # backoff
+                    continue
+                
+                # Yield control and prevent tight loop
+                await asyncio.sleep(0.1)
         
         except asyncio.CancelledError:
             logger.info(f"[{self.brain_id}] Run loop cancelled")
