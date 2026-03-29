@@ -273,3 +273,54 @@ class LongTermMemoryManager:
         except Exception as e:
             logger.error(f"Failed to get memory stats: {e}")
             return {"total_entries": 0}
+    
+    def get_count(self, days: Optional[int] = None) -> int:
+        """Get count of memories, optionally filtered by recent days.
+        
+        Args:
+            days: If provided, count only memories from last N days
+        
+        Returns:
+            Number of matching memories
+        """
+        if not self.db_path:
+            return 0
+        
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                if days is None:
+                    result = conn.execute(
+                        "SELECT COUNT(*) FROM long_term_memories"
+                    ).fetchone()
+                else:
+                    cutoff_time = time.time() - (days * 24 * 3600)
+                    result = conn.execute(
+                        "SELECT COUNT(*) FROM long_term_memories WHERE timestamp > ?",
+                        (cutoff_time,),
+                    ).fetchone()
+            
+            return result[0] if result else 0
+        
+        except Exception as e:
+            logger.error(f"Failed to get memory count: {e}")
+            return 0
+    
+    def prune_old_memories(self, days_threshold: int = 60, importance_threshold: float = 0.4) -> int:
+        """Prune old memories with low importance.
+        
+        Args:
+            days_threshold: Remove entries older than this many days
+            importance_threshold: Only remove if importance is below this value
+        
+        Returns:
+            Number of entries removed
+        """
+        return self.prune_old_entries(days=days_threshold)
+    
+    def save_state(self) -> None:
+        """Persist long-term memory state. Database is auto-persisted, this is a no-op."""
+        logger.debug("Long-term memory state persisted (SQLite auto-saves)")
+    
+    def load_state(self) -> None:
+        """Load long-term memory state. Database is auto-loaded on initialization."""
+        logger.debug("Long-term memory state loaded (SQLite auto-loads)")

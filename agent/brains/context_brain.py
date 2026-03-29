@@ -12,6 +12,7 @@ from agent.core.conversation_context import ConversationContext
 from agent.core.conversation_memory import ConversationMemory
 from agent.core.topic_clustering import TopicClusterManager
 from agent.core.conversational_chains import ConversationalChainManager, ConversationState
+from agent.core.long_term_memory import LongTermMemoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class ContextBrain(Brain):
     - Layer 1: Sliding window (recent turns)
     - Layer 2: Topic clustering (recurring themes)
     - Layer 3: Markov chains (conversation flow)
+    - Layer 4: Long-term memory (important moments)
     """
     
     def __init__(self, data_dir: str | Path = "data", *args, **kwargs):
@@ -35,6 +37,11 @@ class ContextBrain(Brain):
         )
         self._topic_manager = TopicClusterManager()
         self._chain_manager = ConversationalChainManager()
+        
+        # Layer 4: Long-term memory
+        self._long_term_memory = LongTermMemoryManager(
+            db_path=self.data_dir / "long_term_memory.db",
+        )
         
         self._turn_counter = 0
         self._db_path = self.data_dir / "memory.db"
@@ -51,6 +58,9 @@ class ContextBrain(Brain):
         # Prune old topics and chains periodically
         self._topic_manager.prune_old_topics(importance_threshold=2.0)
         self._chain_manager.prune_old_transitions(weight_threshold=0.1)
+        
+        # Prune old long-term memories (older than 60 days with low importance)
+        self._long_term_memory.prune_old_memories(days_threshold=60, importance_threshold=0.4)
     
     async def _on_response_ready(self, event) -> None:
         """Handle agent response ready event - update context."""
@@ -74,7 +84,7 @@ class ContextBrain(Brain):
         self._turn_counter += 1
     
     def add_turn(self, context: ConversationContext) -> None:
-        """Add a conversation turn and update all three layers."""
+        """Add a conversation turn and update all four layers."""
         # Layer 1: Add to sliding window
         self._short_term.add(context)
         
@@ -101,7 +111,11 @@ class ContextBrain(Brain):
             
             self._chain_manager.record_transition(from_state, to_state)
         
-        logger.debug(f"Added turn {context.turn_id} to context brain")
+        # Layer 4: Evaluate for long-term storage
+        importance = self.get_importance_score(context)
+        self._long_term_memory.store_if_important(context, threshold=0.5)
+        
+        logger.debug(f"Added turn {context.turn_id} to context brain (importance: {importance:.2f})")
     
     def get_recent_turns(self, n: Optional[int] = None) -> list[ConversationContext]:
         """Get recent conversation turns."""
@@ -157,42 +171,6 @@ class ContextBrain(Brain):
         
         return "\n".join(lines)
     
-    def save_state(self) -> None:
-        """Persist all context layers to storage."""
-        self._short_term.save()
-        
-        # Save topic clusters
-        topics_file = self.data_dir / "topic_clusters.json"
-        with open(topics_file, "w") as f:
-            json.dump(self._topic_manager.to_dict(), f, indent=2)
-        
-        # Save conversation chains
-        chains_file = self.data_dir / "conversation_chains.json"
-        with open(chains_file, "w") as f:
-            json.dump(self._chain_manager.to_dict(), f, indent=2)
-        
-        logger.info("Context state saved to disk")
-    
-    def load_state(self) -> None:
-        """Load all context layers from storage."""
-        self._short_term.load()
-        
-        # Load topic clusters
-        topics_file = self.data_dir / "topic_clusters.json"
-        if topics_file.exists():
-            with open(topics_file, "r") as f:
-                data = json.load(f)
-                self._topic_manager = TopicClusterManager.from_dict(data)
-        
-        # Load conversation chains
-        chains_file = self.data_dir / "conversation_chains.json"
-        if chains_file.exists():
-            with open(chains_file, "r") as f:
-                data = json.load(f)
-                self._chain_manager = ConversationalChainManager.from_dict(data)
-        
-        logger.info("Context state loaded from disk")
-    
     def get_importance_score(self, context: ConversationContext) -> float:
         """Calculate importance score for potential long-term storage.
         
@@ -231,3 +209,84 @@ class ContextBrain(Brain):
         )
         
         return min(1.0, importance)
+    
+    def search_long_term_by_topic(self, topic: str, limit: int = 10) -> list[dict]:
+        """Search long-term memory for conversations related to a specific topic.
+        
+        Args:
+            topic: Topic to search for
+            limit: Maximum number of results to return
+        
+        Returns:
+            List of memory entries matching the topic
+        """
+        return self._long_term_memory.search_by_topic(topic, limit=limit)
+    
+    def get_memory_stats(self) -> dict:
+        """Get statistics about the context system.
+        
+        Returns:
+            Dictionary with stats for all four layers
+        """
+        recent_turns = self._short_term.get_recent(n=20)
+        
+        return {
+            "layer1_short_term": {
+                "count": len(recent_turns),
+                "max_size": self._short_term.max_size,
+            },
+            "layer2_topics": {
+                "clusters": len(self._topic_manager.clusters),
+                "total_occurrences": sum(
+                    len(cluster.occurrences) 
+                    for cluster in self._topic_manager.clusters.values()
+                ),
+            },
+            "layer3_chains": {
+                "states": len(self._chain_manager._states),
+                "transitions": sum(
+                    len(transitions) 
+                    for transitions in self._chain_manager._transitions.values()
+                ),
+            },
+            "layer4_long_term": {
+                "total_memories": self._long_term_memory.get_count(),
+                "recent_memories": self._long_term_memory.get_count(days=7),
+            },
+        }
+    
+    def save_state(self) -> None:
+        """Persist all context layers to storage."""
+        self._short_term.save()
+        
+        topics_file = self.data_dir / "topic_clusters.json"
+        with open(topics_file, "w") as f:
+            json.dump(self._topic_manager.to_dict(), f, indent=2)
+        
+        chains_file = self.data_dir / "conversation_chains.json"
+        with open(chains_file, "w") as f:
+            json.dump(self._chain_manager.to_dict(), f, indent=2)
+        
+        self._long_term_memory.save_state()
+        
+        logger.info("Context state saved to disk (all 4 layers)")
+    
+    def load_state(self) -> None:
+        """Load all context layers from storage."""
+        self._short_term.load()
+        
+        topics_file = self.data_dir / "topic_clusters.json"
+        if topics_file.exists():
+            with open(topics_file, "r") as f:
+                data = json.load(f)
+                self._topic_manager = TopicClusterManager.from_dict(data)
+        
+        chains_file = self.data_dir / "conversation_chains.json"
+        if chains_file.exists():
+            with open(chains_file, "r") as f:
+                data = json.load(f)
+                self._chain_manager = ConversationalChainManager.from_dict(data)
+        
+        self._long_term_memory.load_state()
+        
+        logger.info("Context state loaded from disk (all 4 layers)")
