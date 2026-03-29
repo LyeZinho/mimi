@@ -106,3 +106,28 @@ Mensagem do usuário: {message}{context_str}
 Forneça uma resposta concisa e útil em português."""
 
         return prompt
+
+    @staticmethod
+    def response_generation_simple(transcript: str, intent: str, context: Optional[Dict[str, Any]] = None) -> str:
+        """Generate a prompt for simple response generation with optional context.
+
+        Args:
+            transcript: The user's message
+            intent: The detected intent
+            context: Optional context dictionary with conversation history
+
+        Returns:
+            A formatted prompt string for response generation
+        """
+        context_str = ""
+        if context and context.get("conversation_history"):
+            context_str = f"\n\nHistorico da conversacao:\n{context['conversation_history']}"
+
+        prompt = f"""Voce é um assistente inteligente e amigável. Responda a seguinte mensagem do usuario.
+
+Mensagem do usuario: {transcript}
+Intencao detectada: {intent}{context_str}
+
+Forneça uma resposta concisa, natural e util em português."""
+
+        return prompt

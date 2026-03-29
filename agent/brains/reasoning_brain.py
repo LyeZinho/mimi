@@ -25,9 +25,10 @@ logger = logging.getLogger(__name__)
 class ReasoningBrain(Brain):
     """Reasoning Brain: LLM inference, contexto, intenção."""
     
-    def __init__(self, llm_provider: Optional[LLMProvider] = None, **kwargs):
+    def __init__(self, llm_provider: Optional[LLMProvider] = None, context_brain=None, **kwargs):
         super().__init__(**kwargs)
         self.llm_provider = llm_provider
+        self.context_brain = context_brain
     
     async def initialize(self) -> None:
         await super().initialize()
@@ -112,7 +113,17 @@ class ReasoningBrain(Brain):
             return f"Echo: {transcript}"
         
         try:
-            prompt = PromptTemplates.response_generation_simple(transcript, intent.get("intent", "chat"))
+            context_data = None
+            if self.context_brain:
+                context_str = self.context_brain.build_llm_context()
+                if context_str:
+                    context_data = {"conversation_history": context_str}
+            
+            prompt = PromptTemplates.response_generation_simple(
+                transcript,
+                intent.get("intent", "chat"),
+                context=context_data,
+            )
             response = await self.llm_provider.generate(prompt, stream=False)
             
             if not response:

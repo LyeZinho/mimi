@@ -62,8 +62,17 @@ class AgentOrchestrator:
         # Initialization order: Input → Reasoning → Output
         # This ensures event chain flows correctly through the pipeline
         self.input_brain = InputBrain("input_brain", self.event_bus, self.shared_state)
+        
+        # Initialize ContextBrain early so ReasoningBrain can reference it
+        self.context_brain = ContextBrain(
+            brain_id="context_brain",
+            event_bus=self.event_bus,
+            shared_state=self.shared_state,
+        )
+        
         self.reasoning_brain = ReasoningBrain(
             llm_provider=self.llm_provider,
+            context_brain=self.context_brain,
             brain_id="reasoning_brain",
             event_bus=self.event_bus,
             shared_state=self.shared_state,
@@ -102,11 +111,6 @@ class AgentOrchestrator:
             self.shared_state,
         )
         self.avatar_brain = AvatarBrain("avatar_brain", self.event_bus, self.shared_state)
-        self.context_brain = ContextBrain(
-            brain_id="context_brain",
-            event_bus=self.event_bus,
-            shared_state=self.shared_state,
-        )
 
         # 8 Brains (full system with context)
         self.brains: list[Brain] = [
