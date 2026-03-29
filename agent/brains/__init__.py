@@ -1,4 +1,5 @@
 from .avatar_brain import AvatarBrain
+from .context_brain import ContextBrain
 from .execution_brain import ExecutionBrain
 from .input_brain import InputBrain
 from .output_brain import OutputBrain
@@ -14,4 +15,5 @@ __all__ = [
     "SentimentBrain",
     "AvatarBrain",
     "OutputBrain",
+    "ContextBrain",
 ]
