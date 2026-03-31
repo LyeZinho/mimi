@@ -9,7 +9,7 @@ def _utc_now() -> datetime:
 
 class TranscriptEvent(BaseModel):
     text: str
-    confidence: float = 1.0
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     timestamp: datetime = Field(default_factory=_utc_now)
 
 
@@ -45,6 +45,6 @@ class ResponsePlan(BaseModel):
 class AgentStateSnapshot(BaseModel):
     fsm_state: str
     active_brain: str
-    last_emotion: str
+    last_emotion: Literal["neutral", "happy", "sad", "angry", "surprised", "curious", "unknown"] = "unknown"
     last_transcript: str
-    latency_ms: int
+    latency_ms: int = Field(ge=0)

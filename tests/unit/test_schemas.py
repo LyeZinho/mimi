@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime
+from pydantic import ValidationError
 from agent.schemas import (
     TranscriptEvent, SentimentResult, AgentContext,
     ResponsePlan, AgentStateSnapshot, MemoryEntry, ToolCall
@@ -18,7 +19,7 @@ def test_sentiment_result_valid_emotions():
 
 
 def test_sentiment_result_invalid_emotion():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         SentimentResult(emotion="bored", intensity=0.5)
 
 
@@ -34,3 +35,17 @@ def test_agent_state_snapshot():
         latency_ms=0
     )
     assert snap.fsm_state == "idle"
+
+
+def test_transcript_event_confidence_validation():
+    with pytest.raises(ValidationError):
+        TranscriptEvent(text="t", confidence=1.5)
+
+
+def test_agent_state_snapshot_latency_validation():
+    with pytest.raises(ValidationError):
+        AgentStateSnapshot(
+            fsm_state="idle", active_brain="none",
+            last_emotion="neutral", last_transcript="",
+            latency_ms=-1
+        )
