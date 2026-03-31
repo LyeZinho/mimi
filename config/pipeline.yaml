@@ -1,0 +1,11 @@
+states:
+  idle:
+    pipeline: []
+  listening:
+    pipeline: [input]
+  processing:
+    pipeline: [sentiment, interaction_read, reasoning, action, interaction_write]
+  speaking:
+    pipeline: [output]
+  error:
+    pipeline: []
