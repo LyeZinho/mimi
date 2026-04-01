@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import uuid
 import yaml
@@ -36,6 +35,8 @@ class Orchestrator:
         if config_path.exists():
             with open(config_path) as f:
                 self._pipeline_config = yaml.safe_load(f)
+        else:
+            log.warning("Pipeline config not found at %s — all pipelines empty", config_path)
 
         await self._short_mem.connect()
         await self._long_mem.connect()
@@ -72,13 +73,26 @@ class Orchestrator:
             )
         }
 
-        pipeline = self._get_pipeline(AgentStateEnum.PROCESSING)
-        context = await self._registry.run_pipeline(pipeline, context)
+        try:
+            pipeline = self._get_pipeline(AgentStateEnum.PROCESSING)
+            context = await self._registry.run_pipeline(pipeline, context)
 
-        response_plan = context.get("response_plan")
-        response_text = response_plan.text if response_plan else ""
+            response_plan = context.get("response_plan")
+            response_text = response_plan.text if response_plan else ""
 
-        await self._fsm.transition(AgentStateEnum.SPEAKING)
-        await self._fsm.transition(AgentStateEnum.IDLE)
+            await self._fsm.transition(AgentStateEnum.SPEAKING)
+            await self._fsm.transition(AgentStateEnum.IDLE)
+
+            self._state_snapshot = AgentStateSnapshot(
+                fsm_state=self._fsm.state.value,
+                active_brain="none",
+                last_emotion=str(context["context"].sentiment.emotion) if context["context"].sentiment else "unknown",
+                last_transcript=text,
+                latency_ms=0,
+            )
+        except Exception:
+            log.exception("Pipeline error — transitioning to ERROR state")
+            await self._fsm.transition(AgentStateEnum.ERROR)
+            raise
 
         return response_text
